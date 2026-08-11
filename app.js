@@ -3,6 +3,7 @@ const state = {
   companies: new Set(),
   kinds: new Set(),
   sort: { virtue: "consistency-desc", risk: "consistency-desc" },
+  documentSort: "date-desc",
   showUndisclosed: false,
 };
 
@@ -31,16 +32,122 @@ function moveTip(event) {
 function showTip(event, html) { const node = $("#tooltip"); node.innerHTML = html; node.classList.add("visible"); moveTip(event); }
 function hideTip() { $("#tooltip").classList.remove("visible"); }
 
+/* --------------------------------------------- how each company words it */
+
+const VERBATIM_LENGTH = 132;
+const VERBATIM_IDEAL = 150;   // a definition-shaped sentence, not a fragment or a procedure
+
+function shorten(text, limit) {
+  const value = clean(text);
+  if (value.length <= limit) return value;
+  const cut = value.slice(0, limit);
+  const boundary = cut.lastIndexOf(" ");
+  return `${cut.slice(0, boundary > limit * 0.6 ? boundary : limit).replace(/[,;:.\s]+$/, "")}…`;
+}
+
+/* Generality is the claim that companies do or do not mean the same thing.
+   The hover puts their own wording side by side so the claim can be checked. */
+function verbatimByCompany(rows) {
+  const byCompany = new Map();
+  rows.forEach(row => {
+    const text = clean(row.definition);
+    if (text.length < 25) return;
+    const list = byCompany.get(row.company) || [];
+    if (list.some(entry => entry.text.toLowerCase() === text.toLowerCase())) return;
+    list.push({ text, title: clean(row.document_title), year: clean(row.document_year) });
+    byCompany.set(row.company, list);
+  });
+  const present = state.data.companies.filter(company => byCompany.has(company.id));
+  /* Keep the hover to one screen: two quotations while few companies speak,
+     one each once the whole field does. */
+  const perCompany = present.length > 4 ? 1 : 2;
+  return present.map(company => {
+    const all = byCompany.get(company.id)
+      .sort((a, b) => Math.abs(a.text.length - VERBATIM_IDEAL) - Math.abs(b.text.length - VERBATIM_IDEAL));
+    return { company: company.label, entries: all.slice(0, perCompany), more: Math.max(0, all.length - perCompany) };
+  });
+}
+
+function verbatimHtml(rows) {
+  const groups = verbatimByCompany(rows);
+  if (!groups.length) return "";
+  return `<div class="tip-verbatim"><h5>How each company puts it</h5>`
+    + groups.map(group => `<section><b>${esc(group.company)}</b>`
+      + group.entries.map(entry => `<p>“${esc(shorten(entry.text, VERBATIM_LENGTH))}”`
+        + `<cite>${esc(shorten(entry.title, 46))}${entry.year ? `, ${esc(entry.year)}` : ""}</cite></p>`).join("")
+      + (group.more ? `<p class="tip-more">+ ${group.more} more</p>` : "")
+      + `</section>`).join("")
+    + `</div>`;
+}
+
+/* ------------------------------------------------------- 0 · the corpus itself */
+
+function compareDocuments(a, b) {
+  const year = value => Number.parseInt(value, 10) || 0;
+  if (state.documentSort === "name") return a.title.localeCompare(b.title);
+  if (state.documentSort === "date-asc") return year(a.year) - year(b.year) || a.title.localeCompare(b.title);
+  if (state.documentSort === "type") return clean(a.type).localeCompare(clean(b.type)) || a.title.localeCompare(b.title);
+  return year(b.year) - year(a.year) || a.title.localeCompare(b.title);
+}
+
+function renderDocuments() {
+  const container = $("#document-grid");
+  const columns = state.data.companies;
+  container.style.gridTemplateColumns = `var(--label-w) repeat(${columns.length}, var(--col-w))`;
+  container.innerHTML = `<div class="co-head spacer">Document type</div>`
+    + columns.map(company => `<div class="co-head"><span class="co-name">${esc(company.label)}</span></div>`).join("");
+
+  let shown = 0;
+  state.data.documentGroups.forEach(group => {
+    const label = document.createElement("div");
+    label.className = "cat-row-label";
+    const total = state.data.documents.filter(source => source.group === group).length;
+    label.innerHTML = `${esc(group)}<span class="constancy">${total} document${total === 1 ? "" : "s"}</span>`;
+    container.append(label);
+    columns.forEach(company => {
+      const cell = document.createElement("div");
+      cell.className = "cat-cell docs-cell";
+      state.data.documents
+        .filter(source => source.company === company.id && source.group === group)
+        .sort(compareDocuments)
+        .forEach(source => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "document-card";
+          button.setAttribute("aria-label", `${source.title}, ${source.year || "undated"}`);
+          const html = `<strong>${esc(source.title)}</strong>`
+            + `<span class="tip-category">${esc(group)}</span>`
+            + `<div class="metric-grid">`
+            + `<span>Year <b>${esc(source.year || "undated")}</b></span>`
+            + `<span>Type <b>${esc(source.type || "Document")}</b></span>`
+            + `<span>Model <b>${esc(source.model || "—")}</b></span>`
+            + `<span>Company <b>${esc(source.company_label)}</b></span>`
+            + `</div>`
+            + `<span class="tip-extra">${source.categories.length} risk / virtue categor${source.categories.length === 1 ? "y" : "ies"} coded here.</span>`;
+          button.addEventListener("mouseenter", event => showTip(event, html));
+          button.addEventListener("mousemove", moveTip);
+          button.addEventListener("mouseleave", hideTip);
+          cell.append(button);
+          shown += 1;
+        });
+      if (!cell.childElementCount) cell.textContent = "—";
+      container.append(cell);
+    });
+  });
+  $("#document-count").textContent = `${shown} documents across ${columns.length} companies.`;
+}
+
 /* ------------------------------------- 1 & 2 · thematic families and their consistency */
 
 function thematicRows(kind) {
   const source = kind === "virtue" ? state.data.virtues : state.data.risks;
   const records = new Map();
   source.forEach(row => {
-    const entry = records.get(row.thematic) || { items: new Map(), documents: new Set(), companies: new Set() };
+    const entry = records.get(row.thematic) || { items: new Map(), documents: new Set(), companies: new Set(), rows: [] };
     entry.items.set(row.item, (entry.items.get(row.item) || 0) + 1);
     entry.documents.add(row.document_id);
     entry.companies.add(row.company);
+    entry.rows.push(row);
     records.set(row.thematic, entry);
   });
   return [...records].map(([thematic, entry]) => ({
@@ -50,6 +157,7 @@ function thematicRows(kind) {
     companies: entry.companies.size,
     records: [...entry.items.values()].reduce((sum, value) => sum + value, 0),
     examples: [...entry.items].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name]) => name),
+    rows: entry.rows,
   })).filter(row => row.metric.documents > 1);
 }
 
@@ -122,11 +230,79 @@ function renderThematic(target, kind) {
       + `<div class="metric-grid">${COMPONENTS.map(component =>
         `<span>${component.label} <b>${pct(row.metric[component.key] || 0)}</b></span>`).join("")}</div>`
       + `<span class="tip-extra">Named by ${row.companies} of ${state.data.companies.length} companies, in ${row.documents} of ${state.data.documents.length} documents, over ${row.records} coded statements.</span>`
-      + `<div class="tip-items">${esc(row.examples.join(" · "))}</div>`;
+      + `<div class="tip-items">${esc(row.examples.join(" · "))}</div>`
+      + verbatimHtml(row.rows);
     group.on("mouseenter", event => showTip(event, html)).on("mousemove", moveTip).on("mouseleave", hideTip);
   });
 
   $(`#${kind}-count`).textContent = `${rows.length} families · ${rows.filter(row => row.metric.label === "Consistent").length} consistent.`;
+}
+
+/* ------------------------------- 1 & 2 · the extremes, named one by one, as chips */
+
+const CHIP_MIN_DOCUMENTS = 3;
+
+function renderChips(target, kind) {
+  const source = kind === "virtue" ? state.data.virtues : state.data.risks;
+  const seen = new Map();
+  source.forEach(row => {
+    const entry = seen.get(row.category) || { items: new Map(), companies: new Set(), rows: [] };
+    entry.items.set(row.item, (entry.items.get(row.item) || 0) + 1);
+    entry.companies.add(row.company);
+    entry.rows.push(row);
+    seen.set(row.category, entry);
+  });
+
+  /* Named in at least three documents, so that "least consistent" reports a
+     category the field has actually tried to state, not a single stray mention. */
+  const ranked = [...seen].map(([category, entry]) => ({
+    category,
+    metric: state.data.categoryConsistency[`${kind}::${category}`],
+    examples: [...entry.items].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name]) => name),
+    rows: entry.rows,
+  })).filter(row => row.metric && row.metric.documents >= CHIP_MIN_DOCUMENTS)
+    .sort((a, b) => b.metric.score - a.metric.score);
+
+  const groups = [
+    { title: "Most consistent", rows: ranked.slice(0, 5) },
+    { title: "Least consistent", rows: ranked.slice(-5).reverse() },
+  ];
+
+  const container = $(target);
+  container.innerHTML = "";
+  groups.forEach(group => {
+    const block = document.createElement("div");
+    block.className = "chip-group";
+    const heading = document.createElement("h4");
+    heading.textContent = group.title;
+    block.append(heading);
+    const strip = document.createElement("div");
+    strip.className = "chip-strip";
+    group.rows.forEach(row => {
+      const metric = row.metric;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "consistency-chip";
+      /* Shaded by score on the same scale as the bars above it. */
+      const light = 88 - metric.score * 62;
+      chip.style.background = `hsl(203 22% ${light}%)`;
+      chip.style.color = light < 55 ? "#fdfbf7" : "var(--ink)";
+      chip.innerHTML = `<span class="chip-name">${esc(row.category)}</span><span class="chip-score">${pct(metric.score)}</span>`;
+      const html = `<strong>${esc(row.category)}</strong>`
+        + `<span class="tip-category">${kind === "virtue" ? "Virtue" : "Risk"} · ${esc(metric.label)} · consistency ${pct(metric.score)}/100</span>`
+        + `<div class="metric-grid">${COMPONENTS.map(component =>
+          `<span>${component.label} <b>${pct(metric[component.key] || 0)}</b></span>`).join("")}</div>`
+        + `<span class="tip-extra">Named by ${metric.companies} of ${state.data.companies.length} companies, in ${metric.documents} document${metric.documents === 1 ? "" : "s"}.</span>`
+        + `<div class="tip-items">${esc(row.examples.join(" · "))}</div>`
+        + verbatimHtml(row.rows);
+      chip.addEventListener("mouseenter", event => showTip(event, html));
+      chip.addEventListener("mousemove", moveTip);
+      chip.addEventListener("mouseleave", hideTip);
+      strip.append(chip);
+    });
+    block.append(strip);
+    container.append(block);
+  });
 }
 
 /* --------------------------------------------------------- 3 · the rankflow */
@@ -357,8 +533,11 @@ function start(data) {
   renderLegend();
   renderCompanies();
   renderKinds();
+  renderDocuments();
   renderThematic("#virtue-chart", "virtue");
   renderThematic("#risk-chart", "risk");
+  renderChips("#virtue-chips", "virtue");
+  renderChips("#risk-chips", "risk");
   renderAlluvial();
 
   $("#virtue-sort").addEventListener("change", event => {
@@ -368,6 +547,10 @@ function start(data) {
   $("#risk-sort").addEventListener("change", event => {
     state.sort.risk = event.target.value;
     renderThematic("#risk-chart", "risk");
+  });
+  $("#document-sort").addEventListener("change", event => {
+    state.documentSort = event.target.value;
+    renderDocuments();
   });
   $("#show-undisclosed").addEventListener("change", event => {
     state.showUndisclosed = event.target.checked;

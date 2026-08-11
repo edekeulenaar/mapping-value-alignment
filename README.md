@@ -22,11 +22,14 @@ The site is self-contained: no CDNs, no external fonts, and no dependence on `fe
 ## Figures
 
 1. **The alignment stack** — the four levels of the stack, drawn natively in SVG.
-2. **Virtues** — the thematic families of desirable conduct, ranked by consistency.
-3. **Risks** — the thematic families of harm, ranked by the same measure.
-4. **From company to evaluation** — a five-stage rankflow: company → virtue or risk → thematic family → training → benchmark.
+2. **The corpus** — every document collected, by company and by kind, deliberately uncoloured. Hovering a marker gives its title, year, type, model and company.
+3. **Virtues** — the thematic families of desirable conduct, ranked by consistency, followed by chips naming the five most and five least consistent virtue categories.
+4. **Risks** — the thematic families of harm, on the same terms and with the same chips.
+5. **From company to evaluation** — a five-stage rankflow: company → virtue or risk → thematic family → training → benchmark.
 
-Each of figures 2–4 is followed by findings answering one question: what virtues are trained for and how consistently they are defined; what risks are mitigated and how consistently they are defined; and what training goes with which family, and what benchmarks evaluate it.
+Figures 3–5 are each followed by findings answering one question: what virtues are trained for and how consistently they are defined; what risks are mitigated and how consistently they are defined; and what training goes with which family, and what benchmarks evaluate it.
+
+Hovering any bar or chip lists **verbatim definitions grouped by company**, drawn from `risk_conduct_definition` and cited to the document they came from. Since generality is a claim about whether companies mean the same thing, the hover puts their own wording side by side so the claim can be checked. Quotations are picked for definition-shaped length rather than maximum length, so procedural passages do not crowd out actual definitions.
 
 ## Consistency
 

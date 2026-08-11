@@ -23,6 +23,18 @@
 .value-map .stack-list { margin:.8rem 0 1.1rem 1.1rem; padding:0; }
 .value-map .stack-list li { margin-bottom:.7rem; padding-left:.3rem; }
 
+/* --------------------------------------------------------- 0 · the corpus grid */
+.value-map { --label-w: 160px; --col-w: 78px; }
+.value-map .grid-wrap { overflow-x:auto; border:1px solid var(--border); background:#fffdf9; padding:10px 12px 12px; }
+/* The template sets --col-w on body.view-named .row-grid; match its specificity. */
+body.value-map .row-grid { --label-w:160px; --col-w:78px; }
+.value-map .co-head { height:auto; padding-bottom:6px; }
+.value-map .cat-row-label { white-space:normal; font-family:var(--sans); font-size:11.5px; font-weight:600; }
+.value-map .cat-row-label .constancy { display:block; margin-top:2px; color:var(--muted); font-size:9.5px; font-weight:400; font-style:italic; }
+.value-map .cat-cell { gap:4px; padding:5px 0; min-height:26px; }
+.value-map .document-card { display:block; width:12px; height:12px; padding:0; border:1px solid var(--ink); border-radius:1px; background:#fff; cursor:pointer; }
+.value-map .document-card:hover { position:relative; z-index:2; background:var(--ink); transform:scale(1.4); }
+
 /* --------------------------------------------------- 1 & 2 · consistency bars */
 .value-map .figure-section { margin-bottom:5rem; }
 .value-map .block-sub { margin:-.3rem 0 .9rem; color:var(--muted); font-style:italic; }
@@ -55,6 +67,16 @@
 .value-map .legend-chip.static { display:flex; gap:7px; align-items:flex-start; margin-bottom:.55rem; cursor:default; font-size:11px; line-height:1.35; }
 .value-map .legend-chip.static .swatch { flex:0 0 11px; width:11px; height:11px; margin-top:2px; border:1px solid rgba(28,26,24,.4); border-radius:2px; }
 
+/* ------------------------------------------------- 1 & 2 · the extremes, as chips */
+.value-map .chip-block { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem 1.6rem; margin-top:1.1rem; }
+.value-map .chip-group h4 { margin:0 0 .5rem; color:var(--muted); font:11px var(--sans); text-transform:uppercase; letter-spacing:.07em; }
+.value-map .chip-strip { display:flex; flex-wrap:wrap; gap:5px; }
+.value-map .consistency-chip { display:inline-flex; align-items:baseline; gap:7px; padding:5px 9px; border:1px solid rgba(28,26,24,.55); border-radius:3px; font:12px var(--sans); cursor:pointer; }
+.value-map .consistency-chip:hover { outline:2px solid var(--ink); outline-offset:1px; }
+.value-map .consistency-chip .chip-name { font-weight:600; }
+.value-map .consistency-chip .chip-score { font-size:10.5px; opacity:.85; font-variant-numeric:tabular-nums; }
+@media (max-width: 860px) { .value-map .chip-block { grid-template-columns:1fr; } }
+
 /* ------------------------------------------------------------- 3 · rankflow */
 .value-map .flow-wrap { overflow-x:auto; border:1px solid var(--border); background:#fffdf9; padding:8px; }
 .value-map #alluvial { display:block; width:100%; min-width:900px; height:720px; }
@@ -72,7 +94,7 @@
 .value-map .findings p:last-child { margin-bottom:0; }
 
 /* ------------------------------------------------------------------- tooltip */
-#tooltip { position:fixed; z-index:100; max-width:370px; padding:9px 11px; background:#fffdf9; border:1px solid var(--ink); box-shadow:2px 3px 0 rgba(0,0,0,.12); font-family:var(--serif); font-size:12px; line-height:1.4; pointer-events:none; opacity:0; transition:opacity .08s; }
+#tooltip { position:fixed; z-index:100; width:min(430px, calc(100vw - 24px)); max-height:min(72vh, 640px); overflow:hidden; padding:9px 11px; background:#fffdf9; border:1px solid var(--ink); box-shadow:2px 3px 0 rgba(0,0,0,.12); font-family:var(--serif); font-size:12px; line-height:1.4; pointer-events:none; opacity:0; transition:opacity .08s; }
 #tooltip.visible { opacity:1; }
 #tooltip strong { display:block; font-family:var(--sans); font-size:11.5px; }
 #tooltip > span { display:block; }
@@ -81,6 +103,14 @@
 #tooltip .tip-items { margin-top:.4em; padding-top:.4em; border-top:1px solid var(--border); font-style:italic; }
 #tooltip .metric-grid { display:grid; grid-template-columns:1fr auto; gap:3px 14px; margin:.5rem 0 0; padding:.45rem 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); font:10px var(--sans); }
 #tooltip .metric-grid span { display:contents; }
+#tooltip .tip-verbatim { margin-top:.6em; padding-top:.5em; border-top:1px solid var(--border); }
+#tooltip .tip-verbatim h5 { margin:0 0 .45em; color:var(--muted); font:10px var(--sans); text-transform:uppercase; letter-spacing:.07em; }
+#tooltip .tip-verbatim section { margin-bottom:.5em; padding-left:8px; border-left:2px solid var(--border); }
+#tooltip .tip-verbatim section:last-child { margin-bottom:0; }
+#tooltip .tip-verbatim b { display:block; font:600 10.5px var(--sans); letter-spacing:.02em; }
+#tooltip .tip-verbatim p { margin:.15em 0 .3em; font-size:11.5px; line-height:1.38; }
+#tooltip .tip-verbatim cite { display:block; margin-top:.1em; color:var(--muted); font:italic 9.5px var(--sans); }
+#tooltip .tip-verbatim .tip-more { color:var(--muted); font:italic 10px var(--sans); }
 
 @media (max-width: 1050px) { .value-map .sidebar-right { display:none; } .value-map main { margin-right:0; max-width:calc(100vw - var(--sb-w)); } }
 @media (max-width: 700px) { .value-map .sidebar-left { display:none; } .value-map main { margin:0; max-width:none; padding:1.5rem; } }

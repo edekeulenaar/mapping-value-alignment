@@ -19,6 +19,7 @@
       <a href="#introduction">Introduction</a>
       <a href="#documents-argument">Alignment documents</a>
       <a href="#method">Method</a>
+      <a href="#documents">The corpus</a>
       <a href="#virtues">Virtues</a>
       <a href="#risks">Risks</a>
       <a href="#flows">From company to evaluation</a>
@@ -93,6 +94,21 @@
       <p><strong>Consistency.</strong> Consistency is not simply how often something is mentioned. A virtue or risk is <em>consistent</em> when three things hold at once: it is present and frequent across the companies’ documents (<em>predominance</em>); companies tend to define it in the same terms as one another (<em>generality</em>); and it recurs steadily inside each company’s own corpus rather than surfacing once (<em>consistency</em>). The three count equally, so a score out of 100 can be read directly off the length of a bar, and the bar’s three segments show which part produced it. A family reads as consistent from 45.</p>
     </section>
 
+    <section id="documents" class="prose figure-section">
+      <h2>The corpus</h2>
+      <p class="block-sub">Every document collected, by company and by kind.</p>
+      <label class="block-sort">Order by
+        <select id="document-sort" class="side-select" aria-label="Order documents">
+          <option value="date-desc">Date · newest first</option>
+          <option value="date-asc">Date · oldest first</option>
+          <option value="name">Title A–Z</option>
+          <option value="type">Document type</option>
+        </select>
+      </label>
+      <div class="grid-wrap"><div id="document-grid" class="row-grid"></div></div>
+      <p class="block-caption">One marker is one document, deliberately left uncoloured. Hover for its title, year, type, model and company. <span id="document-count" class="figure-count"></span></p>
+    </section>
+
     <section id="virtues" class="prose figure-section">
       <h2>Virtues</h2>
       <p class="block-sub">The thematic families of desirable conduct that appear in the corpus, ranked by how consistently the field states them.</p>
@@ -107,10 +123,14 @@
       <div class="chart-wrap"><svg id="virtue-chart" class="bar-chart" role="img" aria-label="Thematic families of virtues ranked by consistency"></svg></div>
       <p class="block-caption"><span id="virtue-count" class="figure-count"></span> Hover a bar for the families’ most frequent items.</p>
 
+      <div id="virtue-chips" class="chip-block"></div>
+      <p class="block-caption">The five most and least consistent virtue categories, among those named in at least three documents. Hover a chip for its three components and its most frequent items.</p>
+
       <div class="findings">
         <h3>What kinds of virtues do companies train for, and how consistently are they defined?</h3>
-        <p>Virtues are narrow. Of 201 coded statements of desirable conduct, more than half — 104, in 58 documents, from all eight companies — fall into a single family: <strong>behavioral alignment and control</strong>, which scores 63 and is the only virtue family the field states consistently. This is the register of helpfulness, harmlessness, refusal tone and instruction-following: virtues of a well-behaved assistant. The one other family that clears the threshold is <strong>epistemic integrity</strong> (53) — honesty, factuality, calibration — named by six companies across 32 documents. Everything else is marginal: capability, political and civic integrity, wellbeing and equity each appear in fewer than fifteen statements and no more than five companies.</p>
-        <p>What companies agree on is that virtues <em>matter</em>, not what they are. Generality — whether companies define a virtue in the same terms as one another — averages just <strong>0.06</strong> across virtue families, and never rises above 0.10 even for the family every company names. Behavioral alignment scores 100 on predominance and 78 on internal consistency, but 10 on generality. Each company returns to “helpfulness” repeatedly and reliably, and each means something of its own by it. The soft virtues are thinner still: political and civic integrity is stated by four companies in eight documents and scores 26, which is what a contested good looks like in a corpus — present enough to be visible, too unevenly held to be a shared commitment.</p>
+        <p>Virtues are narrow. Of 201 coded statements of desirable conduct, more than half — 104, in 58 documents, from all eight companies — fall into a single family: <strong>behavioral alignment and control</strong>, which scores 63 and is the only virtue family the field states consistently. This is the register of helpfulness, harmlessness, refusal tone and instruction-following: virtues of a well-behaved assistant. The one other family that clears the threshold is <strong>epistemic integrity</strong> (53) — honesty, factuality, calibration — named by six companies across 32 documents.</p>
+        <p>The most consistent virtues tend to be product-oriented, like “helpfulness”. Others are hard or existential norms, like safety and compliance. And yet others are “honesty”, i.e. the capacity to represent oneself and the world truthfully to the user — to state what the model knows, what it does not, and what it is.</p>
+        <p>Less consistent are the things that tend to diverge more within and across companies: approaches to defining political neutrality, the personality of models, notions of diversity, and non-accredited knowledge.</p>
       </div>
     </section>
 
@@ -128,10 +148,14 @@
       <div class="chart-wrap"><svg id="risk-chart" class="bar-chart" role="img" aria-label="Thematic families of risks ranked by consistency"></svg></div>
       <p class="block-caption"><span id="risk-count" class="figure-count"></span> Hover a bar for the families’ most frequent items.</p>
 
+      <div id="risk-chips" class="chip-block"></div>
+      <p class="block-caption">The five most and least consistent risk categories, on the same terms. Hover a chip for its three components and its most frequent items.</p>
+
       <div class="findings">
         <h3>What risks do companies set out to mitigate, and how consistently are they defined?</h3>
-        <p>Risks are where the documentation actually lives. There are 1,605 coded risk statements against 201 for virtues — roughly eight to one — and where two virtue families clear the threshold, <strong>six risk families do</strong>, each of them named by all eight companies. <strong>Content safety and misuse</strong> leads at 73, present in 126 of the 170 documents; then privacy and provenance (68), behavioral alignment and control (68), epistemic integrity (68), societal harms and equity (65), and catastrophic and security risks (64). The recurring items are concrete and shared: jailbreaks in 41 documents, cybersecurity in 32, hallucinations in 31, prompt injection in 28, child sexual abuse in 23, chemical and biological uplift in 20. This is a settled agenda, and it is the same agenda everywhere.</p>
-        <p>Companies also agree more about harms than about goods. Generality across risk families averages <strong>0.16</strong>, against 0.06 for virtues — nearly three times higher — and rises to 0.28 for content safety and misuse and 0.42 for CBRN specifically. It is easier to say the same thing as a competitor about what a model must not do than about what it should be. But agreement stops at the political edge: <strong>political and civic integrity</strong> is stated by only three companies in fifteen documents and scores 42, and capability and general harms fall lower still. The pattern across both figures is the same — the field converges wherever a harm is legible to regulators and insurers, and fragments wherever a value is contested.</p>
+        <p>Risks are where the documentation actually lives. There are 1,605 coded risk statements against 201 for virtues — roughly eight to one — and where two virtue families clear the threshold, <strong>six risk families do</strong>, each of them named by all eight companies. The recurring items are concrete and shared: jailbreaks in 41 documents, cybersecurity in 32, hallucinations in 31, prompt injection in 28, child sexual abuse in 23, chemical and biological uplift in 20. This is a settled agenda, and it is the same agenda everywhere.</p>
+        <p>The most consistent risks are also existential: CBRN, cybersecurity, the question of autonomy — the danger of AIs “going rogue” — harmful content, and privacy. Bias is also an important category here, because it is general enough to be applicable to any and all kinds of excessive subjectivities.</p>
+        <p>Interestingly, this also includes over-refusal: the problem of models refusing <em>too much</em> from user prompts. Notions of misinformation, meanwhile, have lost a lot of political capital here, in the sense that their political liabilities tend to disfavour them.</p>
       </div>
     </section>
 
@@ -143,9 +167,10 @@
       <p class="block-caption">Records that disclose neither training nor benchmark are hidden by default; the sidebar restores them.</p>
 
       <div class="findings">
-        <h3>What training goes with which families, and what benchmarks evaluate it?</h3>
-        <p>The stack divides according to whether a thing is a good or a harm. <strong>Virtues are taught; risks are contained.</strong> Where a virtue in behavioral alignment is trained, it goes to supervised training (35%) and preference learning (26%) — methods that write a disposition into the weights. Where the corresponding <em>risk</em> is trained, the same two methods hold only 19% each, and inference-time filtering, hard constraints and runtime safeguards take over. For content safety and misuse the split is starker: inference-time filtering (26%), hard constraints (17%) and data curation (17%) lead, and for catastrophic and security risks the largest single path in the whole figure is to <strong>runtime safeguards</strong> — a guard sitting outside the model at the moment of use. The heaviest flows in the corpus describe containment at the edge rather than alignment in the weights.</p>
-        <p>Evaluation, by contrast, barely differentiates at all. Whatever the training, the benchmark is overwhelmingly a <strong>task-performance benchmark</strong>: it is the leading destination for inference-time filtering, supervised training, preference learning, hard constraints, data curation, runtime safeguards and adversarial training alike. The forms that would actually test a safeguard — adversarial stress tests, interactive scenarios, behavioural probes — appear at a fraction of the weight. A single evaluative form absorbs the entire stack, which means a model can be trained in seven different ways and shown to be aligned in one. The proliferation visible on the left of the figure narrows to a bottleneck on the right.</p>
+        <h3>What kinds of training go with each family, and what benchmarks evaluate them?</h3>
+        <p>Training splits along a simple line: <strong>virtues are taught, risks are blocked</strong>. When a company trains a virtue, it mostly uses supervised training and preference learning — methods that put a disposition into the model itself. When it handles the matching risk, those same methods drop away and filtering, hard constraints and runtime safeguards take over. These do not change the model; they sit around it and stop things at the moment of use. For content safety, filtering and hard rules lead. For catastrophic and security risks, the single heaviest path in the whole figure runs to runtime safeguards.</p>
+        <p>So the further down the stack we go, the less alignment looks like teaching a model to behave and the more it looks like fencing it in.</p>
+        <p>Benchmarking barely follows any of this. Whatever the training, the test is nearly always a task-performance benchmark — the same destination for filtering, supervised training, preference learning, hard constraints, data curation, runtime safeguards and adversarial training alike. The tests that would actually probe a safeguard, like adversarial stress tests or interactive scenarios, are used far less. A model can be trained in seven different ways and then shown to be aligned by one kind of score. What widens on the left of the figure narrows to a bottleneck on the right.</p>
       </div>
     </section>
 
