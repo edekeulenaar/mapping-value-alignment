@@ -14,6 +14,7 @@
       <p class="brand-sub">Values, risks, training and evaluation across model-card documentation.</p>
     </header>
     <nav class="side-nav" aria-label="Sections">
+      <a href="#stack-overview">Alignment stack</a>
       <a href="#introduction">Introduction</a>
       <a href="#method">Method</a>
       <a href="#findings">Findings</a>
@@ -23,7 +24,7 @@
         <li><a href="#risks">Risks</a></li>
         <li><a href="#training">Training</a></li>
         <li><a href="#benchmarking">Benchmarking</a></li>
-        <li><a href="#flows">Alignment stack</a></li>
+        <li><a href="#flows">Rankflow</a></li>
       </ul>
       <a href="#limitations">Limitations</a>
     </nav>
@@ -66,6 +67,12 @@
       <p class="byline">A distant reading of how eight AI companies articulate desirable conduct, potential harms, training interventions, and evaluations in model-card documentation.</p>
     </header>
 
+    <section id="stack-overview" class="prose stack-overview-section">
+      <h2>The AI alignment stack</h2>
+      <p class="lede">Alignment moves downward through a documentary and technical stack: public rules frame corporate commitments; those commitments define desirable conduct and risks; training operationalises them; and benchmarking makes them measurable.</p>
+      <div class="stack-overview-wrap"><svg id="stack-overview-svg" role="img" aria-label="The AI alignment stack, from legislation and policy through definition, training and benchmarking"></svg></div>
+    </section>
+
     <section id="introduction" class="prose">
       <h2>Introduction</h2>
       <p class="lede">Value alignment is not a single technical intervention. It is a chain of choices through which companies define desirable conduct and potential harms, train models to respond to them, and evaluate whether those responses hold. This map follows that chain across model cards and related alignment documents.</p>
@@ -74,8 +81,8 @@
 
     <section id="method" class="prose">
       <h2>Method</h2>
-      <p>The corpus contains model cards, system cards, safety frameworks, policy pages and technical reports from OpenAI, Google, Anthropic, xAI, Meta, DeepSeek, Mistral AI and Microsoft. Each source record links a value or risk to its definition, reported training method and reported benchmark where these are disclosed. Values and risks are placed in thematic categories; their constancy distinguishes recurrent, similarly defined commitments from more variable ones.</p>
-      <p>Every box in the following matrices is an individual disclosed item. For training and benchmarking, repeated disclosures are kept as distinct records so that the diagram preserves the evidentiary links between commitment, intervention and test.</p>
+      <p>The corpus contains model cards, system cards, safety frameworks, policy pages and technical reports from OpenAI, Google, Anthropic, xAI, Meta, DeepSeek, Mistral AI and Microsoft. Each source record links a value or risk to its definition, reported training method and reported benchmark where these are disclosed.</p>
+      <p>Constancy is measured within each company and virtue/risk item. The score combines linguistic similarity among its definitions, recurrence across distinct documents, and persistence over the company’s documentary timeline. A recently introduced or rarely mentioned item is therefore treated as variable even when its few definitions happen to use similar language.</p>
     </section>
 
     <section id="findings">
@@ -87,31 +94,33 @@
       </section>
 
       <section id="virtues" class="grid-block">
-        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Ordered by constancy, from constant to variable; coloured by risk/virtue category.</p></div>
+        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Company-level constancy combines definition similarity, document recurrence and temporal persistence.</p></div>
         <div id="virtue-grid" class="row-grid"></div>
       </section>
 
       <section id="risks" class="grid-block">
-        <div class="block-head"><h3>Risks</h3><p class="block-sub">Ordered by constancy, from constant to variable; coloured by risk/virtue category.</p></div>
+        <div class="block-head"><h3>Risks</h3><p class="block-sub">Company-level constancy combines definition similarity, document recurrence and temporal persistence.</p></div>
         <div id="risk-grid" class="row-grid"></div>
       </section>
 
       <section id="training" class="grid-block">
-        <div class="block-head"><h3>Training</h3><p class="block-sub">Rows are reported training categories; colour identifies the value or risk category the method is associated with.</p></div>
-        <div id="training-grid" class="row-grid"></div>
+        <div class="block-head"><h3>Training associations</h3><p class="block-sub">Which training approaches are most often associated with each kind of virtue or risk?</p></div>
+        <p class="block-caption">Circle size represents weighted source records. “Not reported” and associations with fewer than three weighted records are omitted; at most the twenty most prevalent virtue/risk categories are shown.</p>
+        <div class="association-wrap"><svg id="training-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and training categories"></svg></div>
       </section>
 
       <section id="benchmarking" class="grid-block">
-        <div class="block-head"><h3>Benchmarking</h3><p class="block-sub">Rows are benchmark categories; every card names the disclosed benchmark.</p></div>
-        <div id="benchmark-grid" class="row-grid"></div>
+        <div class="block-head"><h3>Benchmark associations</h3><p class="block-sub">Which evaluation techniques are most often used for each kind of virtue or risk?</p></div>
+        <p class="block-caption">Circle size represents weighted source records. “Not reported” and associations with fewer than three weighted records are omitted; at most the twenty most prevalent virtue/risk categories are shown.</p>
+        <div class="association-wrap"><svg id="benchmark-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and benchmark techniques"></svg></div>
       </section>
     </section>
 
     <section id="flows" class="prose flow-section">
       <h2>From company to evaluation</h2>
-      <p>The alluvial diagram follows the alignment stack from company, to thematic category, to training category, to benchmark category. Its flow widths are constructed from source-record weights: when one record reports several training or benchmark categories, that record is divided among its reported paths. The aggregate therefore remains proportional to the underlying documentation, rather than giving every company equal visual weight.</p>
+      <p>The rankflow follows the alignment stack from company, to thematic category, to training category, to benchmark category. Flow widths preserve source-record weights. Colours follow each flow’s source at a given stage, in the style of a RAWGraphs alluvial diagram. Hover a line to isolate it and highlight both endpoints.</p>
       <div class="flow-wrap"><svg id="alluvial" role="img" aria-label="Alluvial diagram of company, thematic category, training category and benchmark category"></svg></div>
-      <p class="meta">“Not reported” denotes a source record without a disclosed training or benchmark category. Hover a flow for its weighted contribution.</p>
+      <p class="meta">Undisclosed training and benchmarking records are omitted from this global view to keep the disclosed associations legible.</p>
     </section>
 
     <section id="limitations" class="prose">
