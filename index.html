@@ -19,55 +19,35 @@
       <a href="#introduction">Introduction</a>
       <a href="#documents-argument">Alignment documents</a>
       <a href="#method">Method</a>
-      <a href="#findings">Findings</a>
-      <ul class="sub-nav">
-        <li><a href="#documents">Documents</a></li>
-        <li><a href="#virtues">Virtues</a></li>
-        <li><a href="#risks">Risks</a></li>
-        <li><a href="#training">Training</a></li>
-        <li><a href="#benchmarking">Benchmarking</a></li>
-        <li><a href="#flows">Rankflow</a></li>
-      </ul>
+      <a href="#virtues">Virtues</a>
+      <a href="#risks">Risks</a>
+      <a href="#flows">From company to evaluation</a>
       <a href="#limitations">Limitations</a>
     </nav>
   </aside>
 
   <aside class="sidebar sidebar-right" aria-label="Controls">
     <div class="side-block">
-      <h4>View</h4>
-      <label class="side-toggle"><input type="checkbox" id="compact-commitments"><span>Compact virtue/risk chips</span></label>
-      <label class="side-toggle"><input type="checkbox" id="show-definitions"><span>Show definitions in chips</span></label>
-      <p class="side-hint">Hover any chip, marker or circle to read the recorded definitions and scores.</p>
+      <h4>Consistency</h4>
+      <p class="side-hint">Every bar is a score out of 100, made of three equal parts.</p>
+      <div id="component-legend" class="legend"></div>
     </div>
     <div class="side-block">
-      <h4>Sort documents</h4>
-      <select id="document-sort" class="side-select" aria-label="Sort documents">
-        <option value="date-desc">Date · newest first</option>
-        <option value="date-asc">Date · oldest first</option>
-        <option value="name">Title A–Z</option>
-        <option value="type">Document type</option>
-      </select>
+      <h4>Rankflow · virtue or risk</h4>
+      <p class="side-hint">Tick to limit the rankflow to one side of the stack.</p>
+      <ul id="kind-list" class="company-list"></ul>
+      <button class="reset" id="reset-kinds" type="button">Show both</button>
     </div>
     <div class="side-block">
-      <h4>Sort association charts</h4>
-      <select id="association-sort" class="side-select" aria-label="Sort association charts">
-        <option value="count">Weighted frequency</option>
-        <option value="name">Name A–Z</option>
-        <option value="constancy">Mean constancy</option>
-      </select>
-    </div>
-    <div class="side-block">
-      <h4>Risk / virtue category</h4>
-      <p class="side-hint category-hint">Select one or more categories to filter every figure on the page.</p>
-      <input type="search" id="category-search" class="side-search-input" placeholder="Find a category…">
-      <div id="legend" class="legend"></div>
-      <button class="reset" id="reset-categories" type="button">Show all categories</button>
-    </div>
-    <div class="side-block">
-      <h4>Companies</h4>
-      <p class="side-hint side-hint-companies">Tick to limit every figure to the selected companies.</p>
+      <h4>Rankflow · companies</h4>
+      <p class="side-hint">Tick to limit the rankflow to the selected companies.</p>
       <ul id="company-list" class="company-list"></ul>
       <button class="reset" id="reset-companies" type="button">Show all companies</button>
+    </div>
+    <div class="side-block">
+      <h4>Rankflow · disclosure</h4>
+      <label class="side-toggle"><input type="checkbox" id="show-undisclosed"><span>Include undisclosed training and benchmarks</span></label>
+      <p class="side-hint">Off by default: most records disclose neither, and they crowd out what is disclosed.</p>
     </div>
   </aside>
 
@@ -79,101 +59,99 @@
 
     <section id="stack-overview" class="prose stack-overview-section">
       <h2>The alignment stack</h2>
-      <p class="lede">Value alignment asks how guiding principles — fairness, accountability, transparency, safety — are embedded into technical systems. We treat it as the process by which AI companies decide, together with the law and with partnerships among states, alignment research organisations and publics, how their models should behave in relation to what “humans value”.</p>
-      <p>Research has tended to take up one part of that process at a time: red teaming, the drafting of alignment documents, the content of model cards, the actors named in them, or ethnographies of data work and training. These interventions matter more when they are joined back together, because alignment is indivisible — it runs from data production through policy documents to training, benchmarking and other forms of evaluation. We call the result a stack, in the sense that its components depend on one another.</p>
+      <p class="lede">Value alignment asks how guiding principles — fairness, accountability, transparency, safety — are embedded into technical systems. We broadly define it as the process by which AI companies decide, in conjunction with the law and various partnerships with states, alignment research organisations and publics, how their AIs should behave in relation to ideas of what “humans value”.</p>
+      <p>Research has tended to take up one part of that process at a time: red teaming, the drafting of alignment documents, the content of model cards, the actors present in them, or ethnographies of training and data work. While these interventions are important, they all become more important when joined together into the overall process of alignment, which is indivisible — from data production, to the drafting of policy documents, to training, to benchmarking and other forms of evaluation.</p>
       <div class="stack-overview-wrap"><svg id="stack-overview-svg" role="img" aria-label="The AI alignment stack: high-level legislation and policies, definition, training, and benchmarking"></svg></div>
       <p class="meta">Levels 2 to 4 are the ones this map reads empirically. Level 1 frames them but is not coded here.</p>
     </section>
 
     <section id="introduction" class="prose">
       <h2>Introduction</h2>
-      <p class="lede">Alignment has become the main site of intervention for determining the norms and values by which AI works. As AI conditions and organises how information is consumed, alignment gives a normative orientation to how that information is generated and ordered — a pressing matter across domestic, geopolitical and public arenas alike.</p>
-      <p>The components of the stack are three. The <em>definition</em> of <em>risks</em>, meaning what models should be prevented from reproducing — aiding criminality, breaching cybersecurity, and so on — and of <em>virtues</em>, meaning the conduct by which models should behave: helpfulness, faithfulness, a warm and friendly personality. The <em>training</em> of those risks and virtues through supervised learning, reward-based learning, adversarial learning, hard constraints. And the <em>benchmarking</em> of that training, where models are tested against criteria produced by companies or third parties, scored on how rigorously they reproduce a particular definition of a value or risk.</p>
-      <p>Different kinds of training suit different kinds of values. Hard constraints matter for potentially criminal prompts; adversarial learning creates the frictions that a virtue like political diversity may require. What this map follows, then, is the <em>operationalisation</em> of a risk or virtue through the stack — how a definition trickles down into training and into evaluation.</p>
+      <p class="lede">Alignment has become the main site of intervention for people to determine the norms and values by which AIs work. LLMs have been around for a while now, but AI is also progressively replacing what we called algorithms and algorithms research, as AI conditions and organises the way we consume information. Alignment gives a normative sense, or orientation, to how information is generated and organised by AI — to the point that we see how pressing an issue this is in many areas of power: domestic, geopolitical, and public.</p>
+      <p>We call this a “stack”, in the sense that we highlight the interdependencies between these components of alignment. These components are:</p>
+      <ul class="stack-list">
+        <li>The <em>definition</em> of <em>risks</em> — what AIs should be prevented from reproducing, such as aiding criminality or breaching cybersecurity directions — and of <em>virtues</em>, the conducts by which AIs should behave, such as “helpfulness”, “warm and friendly personalities” or “faithfulness”.</li>
+        <li>The <em>training</em> of risks and virtues, namely: supervised learning; reward-based learning; adversarial learning; hard constraints; and so on. Different kinds of training may be applied to different kinds of values and risks. For example, hard constraints are important for potentially criminal prompts, while adversarial learning is important to create the frictions that virtues like “political diversity” may need.</li>
+        <li>The <em>benchmarking</em> and <em>evaluation</em> of training processes. This is the step where models are tested against criteria produced by companies or third parties, be they academics, alignment research organisations, or governments. Those criteria tend to reinforce a particular definition of a given value or risk, and test how rigorously a model performs at replicating them by running scenarios in which a value or risk is tested, and then offering a score of how well the model performs.</li>
+      </ul>
+      <p>So here, in sum, we look into the <em>operationalisation</em> of a risk or virtue throughout the alignment stack — how their definition trickles down into training and benchmarking.</p>
     </section>
 
     <section id="documents-argument" class="prose">
       <h2>The documents of alignment</h2>
-      <p>For those who have studied content moderation, the familiar datapoint is the policy document, which stipulates what a service allows and does not allow. Alignment documents are different in kind. Companies keep policy documents of that sort, but they also produce more <em>aspirational</em> texts defining how models should in theory behave towards potential phenomena. This is why both we and the companies use the word “risk”: it names a potentiality that models are trained to pre-empt across a myriad of possible uses. The same holds for a virtue — a way that models <em>should</em> behave across a diversity of scenarios, to the point that models become norm sponsors, reproducing norms onto the world by steering users towards virtuous choices.</p>
-      <p><strong>Principles.</strong> First there are, for lack of a better word, canonical principles in which companies scope their alignment. As platform policies draw the finite lines of what a service can do, these chart the broad lines of an alignment project: they declare a philosophy, deciding what is good and bad and why. The documents differ in flavour by company. xAI makes clear that Grok should behave in ways antithetical to other models on the market — “truth-speaking” against values the company deems too liberal. One might read this as performative work addressed to governmental stakeholders. But it is not only that: in practical terms it is the root repository of norms, definitions, scenarios and metrics by which specific virtues and risks are trained, and the place where companies state their choices amid continuing debate about what AI is and how it will transform employment, sustainability and autonomy. There is a clear if understated way in which companies have taken up the craft of traditional political actors.</p>
-      <p><strong>Announcements, initiatives and grants.</strong> Then there are documents announcing projects, points of interest, partnerships and other developments not always reflected in model cards or principles. Though they can look like PR exercises, they are useful datapoints in ongoing and often shifting alignment projects — efforts to afford deliberative or public input into AI constitutions, for instance, such as Anthropic’s Collective Constitutional AI and OpenAI’s equivalent.</p>
-      <p><strong>Model cards.</strong> Finally there are model cards: relatively standardised reports of how a model was trained. They usually state a training objective, including the risk-mitigation strategies and virtues a company wants embedded; the training process, meaning what training was chosen, with whom and how; and the benchmarks used to verify its effectiveness. Since 2019 they have become industry practice, an effort to render machine learning more transparent in response to critiques of opaque data collection and training. They are not all exhaustive, but they state the fundamental components of the training process more fully than documents aimed at lay audiences.</p>
-      <p><strong>Repositories.</strong> We should not forget the world of repositories, where code contains its own forms of decision-making. For this reading we do not take them into account, though they could be combined with all of the documents above.</p>
+      <p>For those of us who have been studying content moderation, most of the familiar datapoints are policy documents, which stipulate what content a platform service allows and does not allow. The documents we see in alignment are a little different in kind. AI companies have the kind of policy documents mentioned above, but they also have more <em>aspirational</em> documents that define how models should in theory behave towards and against potential phenomena. This is why we, and many companies, use the word “risk”: it remains a <em>potentiality</em> that models should be trained to pre-empt in myriads of potential uses. The same applies to a virtue: it is a way that models <em>should</em> behave ideally in a diversity of scenarios, to the point of becoming “norm sponsors” — able to reproduce norms onto the world by educating and otherwise steering users towards virtuous choices.</p>
+      <p><strong>Principles.</strong> First, there are, for lack of a better word, canonical “principles” in which AI companies scope their alignment. In the same way that platform policies determine the finite lines of what they can and cannot do, these chart the broad lines of an alignment project: they declare an alignment philosophy, or deontology, making decisions as to what they think is good and bad and why. xAI, for example, makes very clear that Grok should behave in ways antithetical to other models in the market: it should be “truth-speaking” against values the company deems too liberal. Some may argue that this is a particular kind of discursive work, a performative task aimed at speaking to governmental stakeholders and other actors who co-act as legal and normative institutions. But that may not just be that. In practical terms, it is the root repository of norms, definitions, scenarios and metrics by which specific virtues and risks are trained.</p>
+      <p><strong>Announcements, initiatives and grants.</strong> Then there are documents where AI companies announce projects, points of interest, partnerships and other developments that are not always immediately reflected in model cards and principles. Though these may seem like PR exercises, they are useful datapoints in companies’ ongoing and often shifting alignment projects — efforts to afford deliberative or public inputs into AI constitutions, for instance, such as Anthropic’s Collective Constitutional AI and OpenAI’s equivalent effort.</p>
+      <p><strong>Model cards.</strong> Finally there are, as we know, model cards: relatively standardised documents that report how a model was trained. The components are usually a stated training objective, including the risk-mitigation strategies and virtues companies want to embed in their models; the training process, meaning what training was chosen, with whom and how; and the benchmarks used to verify the effectiveness of the training. Since 2019, model cards have become an industry practice as an effort to render machine learning more transparent, in response to critiques against opaque data collection and training methods. Though they are not all exhaustive, they state some of the fundamental components of the training process more fully than documents veered towards lay audiences.</p>
+      <p><strong>Repositories.</strong> We shouldn’t forget, as we know from machine learning literature, the world of repositories. For this specific reading we don’t take them into account, but they may well be combined with all of the documents above, since code contains various forms of decision-making.</p>
     </section>
 
     <section id="method" class="prose">
       <h2>Method</h2>
-      <p>We manually collected 183 documents from eight companies — American, European and Chinese — as a sample. Companies differ in how much alignment documentation they publish; Mistral, ironically, publishes almost none. We then performed a distant reading of every document using three readers: two LLMs, one frontier and one baseline, and ourselves. We call it distant reading because it is a collective reading of datapoints defined inductively. Having read a pair of documents, we determined what to collect systematically: the risk or virtue being trained, where available; the way it was trained; how it was benchmarked; and which actors were involved at each step. This was done manually for five documents per company, then given as an example to the two models. Where the models agreed on a passage, the passage was kept; where they disagreed, we made the call by verifying the document by hand.</p>
-      <p>Extraction proceeded in two steps. First the model collected each document’s own expressions of ideal conduct, risks, training or mitigation methods, benchmarks and participating actors. Second, those expressions were categorised manually into controlled vocabularies. Conduct categories include honesty, helpfulness, harmlessness, anti-discrimination, political neutrality, factuality, reasoning, safety and knowledge; risk categories include CBRN, cybersecurity, bias, sycophancy, reward hacking, persuasion, misalignment, hallucinations, child safety and jailbreaking, among others. Where no category fits, the item remains under “Other”.</p>
-      <p><strong>Constancy.</strong> Constancy is not overall frequency across companies. It is a company-level measure of how consistently one company states a given virtue or risk over time: how much its definitions change from document to document, and how steadily the item appears in its corpus at all. Three things enter the score — the linguistic similarity between the definitions a company attaches to the item (45%), how much of that company’s corpus mentions it (35%), and how much of the company’s documentary timeline it spans (20%). The result is scaled by a confidence factor, so an item stated once or twice stays provisional however closely its few definitions happen to match. A unit counts as <em>constant</em> when it appears in at least two distinct documents and scores at least 0.45.</p>
-      <p>The score is computed at two levels, because the two answer different questions. Each <em>category</em> — CBRN, child safety, political neutrality — is scored per company, and this is what ranks the rows: it is the level at which a company can be said to hold a settled position. Each <em>item</em> is scored separately and badged on its chip. Item names are coded finely, so one category may hold dozens of near-synonyms; near-duplicate spellings are merged, but a specific phrasing used once remains variable even where the concept behind it is constant. Read together, the two levels show a company returning to a concept steadily while naming it differently each time.</p>
+      <p>We manually collected 183 documents from eight companies around the world — American, EU and Chinese — as a sample; 170 of them carry coded statements and are read here. Different companies have different amounts of alignment documents available; Mistral, ironically, almost none. We then did a distant reading of all documents using three “readers”: two LLMs, one frontier and one baseline, and ourselves. We call it distant reading because it consists in a collective reading of specific datapoints we defined inductively. Once we read a pair of documents, we determined we wanted to systematically collect: the risk or virtue being trained, where available; the way it was trained; how it was benchmarked; and what actors were involved in each of these steps. This was first done manually with five documents from each company, and then given as an example to the two LLMs. When the LLMs agreed with a passage, that passage was kept; where they disagreed, we made the call by verifying the document manually.</p>
+      <p>Extraction proceeded in two steps. First, the model collected the document’s own expressions of ideal conducts, risks, training or mitigation methods, benchmarks and participating actors. Second, these expressions were categorised manually into controlled vocabularies, and grouped into the thematic families used below. Whether a statement is a virtue or a risk follows the document’s own framing, decided per item across all its occurrences.</p>
+      <p><strong>Consistency.</strong> Consistency is not simply how often something is mentioned. A virtue or risk is <em>consistent</em> when three things hold at once: it is present and frequent across the companies’ documents (<em>predominance</em>); companies tend to define it in the same terms as one another (<em>generality</em>); and it recurs steadily inside each company’s own corpus rather than surfacing once (<em>consistency</em>). The three count equally, so a score out of 100 can be read directly off the length of a bar, and the bar’s three segments show which part produced it. A family reads as consistent from 45.</p>
     </section>
 
-    <section id="findings">
-      <h2>Findings</h2>
-      <section id="documents" class="grid-block">
-        <div class="block-head"><h3>Documents</h3><p class="block-sub">The corpus by genre: principles, model cards, announcements / grants / initiatives, and policies.</p></div>
-        <p class="block-caption">One marker is one document, deliberately left uncoloured. Hover for the title, year, type, model and company. <span id="document-count" class="figure-count"></span></p>
-        <div id="document-grid" class="row-grid"></div>
-      </section>
+    <section id="virtues" class="prose figure-section">
+      <h2>Virtues</h2>
+      <p class="block-sub">The thematic families of desirable conduct that appear in the corpus, ranked by how consistently the field states them.</p>
+      <label class="block-sort">Rank by
+        <select id="virtue-sort" class="side-select" aria-label="Rank virtue families">
+          <option value="consistency-desc">Consistency · most first</option>
+          <option value="consistency-asc">Consistency · least first</option>
+          <option value="documents">Documents</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </label>
+      <div class="chart-wrap"><svg id="virtue-chart" class="bar-chart" role="img" aria-label="Thematic families of virtues ranked by consistency"></svg></div>
+      <p class="block-caption"><span id="virtue-count" class="figure-count"></span> Hover a bar for the families’ most frequent items.</p>
 
-      <section id="virtues" class="grid-block">
-        <div class="block-head">
-          <h3>Virtues</h3>
-          <p class="block-sub">Hard virtues concern safety and legal compliance; softer ones — political neutrality, truth-speaking — remain contingent on public debate and company discretion.</p>
-          <label class="block-sort">Rank by
-            <select id="virtue-sort" class="side-select" aria-label="Sort virtues">
-              <option value="constancy">Constancy · highest first</option>
-              <option value="name">Name A–Z</option>
-              <option value="date-desc">Document date · newest first</option>
-              <option value="date-asc">Document date · oldest first</option>
-            </select>
-          </label>
-        </div>
-        <p class="block-caption">One chip is one virtue within one company, merged across every document that names it, coloured by risk/virtue category and badged with its constancy score. <span id="virtue-count" class="figure-count"></span></p>
-        <div id="virtue-grid" class="row-grid"></div>
-      </section>
-
-      <section id="risks" class="grid-block">
-        <div class="block-head">
-          <h3>Risks</h3>
-          <p class="block-sub">Likewise risks: some hard, such as cybersecurity, and some contingent, such as political bias.</p>
-          <label class="block-sort">Rank by
-            <select id="risk-sort" class="side-select" aria-label="Sort risks">
-              <option value="constancy">Constancy · highest first</option>
-              <option value="name">Name A–Z</option>
-              <option value="date-desc">Document date · newest first</option>
-              <option value="date-asc">Document date · oldest first</option>
-            </select>
-          </label>
-        </div>
-        <p class="block-caption">One chip is one risk within one company. The hover lists every source occurrence with its document title, date and recorded definition. <span id="risk-count" class="figure-count"></span></p>
-        <div id="risk-grid" class="row-grid"></div>
-      </section>
-
-      <section id="training" class="grid-block">
-        <div class="block-head"><h3>Training associations</h3><p class="block-sub">Which kinds of training are associated with which kinds of virtues and risks?</p></div>
-        <p class="block-caption">Circle size represents weighted source records; colour follows the risk/virtue category. “Not reported” and associations below three weighted records are omitted, and at most the twenty leading categories are drawn.</p>
-        <div class="association-wrap"><svg id="training-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and training categories"></svg></div>
-      </section>
-
-      <section id="benchmarking" class="grid-block">
-        <div class="block-head"><h3>Benchmark associations</h3><p class="block-sub">And which evaluations are used to verify that the training held?</p></div>
-        <p class="block-caption">Circle size represents weighted source records. Benchmark criteria tend to reinforce a particular definition of a value or risk and score how rigorously a model reproduces it.</p>
-        <div class="association-wrap"><svg id="benchmark-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and benchmark techniques"></svg></div>
-      </section>
+      <div class="findings">
+        <h3>What kinds of virtues do companies train for, and how consistently are they defined?</h3>
+        <p>Virtues are narrow. Of 201 coded statements of desirable conduct, more than half — 104, in 58 documents, from all eight companies — fall into a single family: <strong>behavioral alignment and control</strong>, which scores 63 and is the only virtue family the field states consistently. This is the register of helpfulness, harmlessness, refusal tone and instruction-following: virtues of a well-behaved assistant. The one other family that clears the threshold is <strong>epistemic integrity</strong> (53) — honesty, factuality, calibration — named by six companies across 32 documents. Everything else is marginal: capability, political and civic integrity, wellbeing and equity each appear in fewer than fifteen statements and no more than five companies.</p>
+        <p>What companies agree on is that virtues <em>matter</em>, not what they are. Generality — whether companies define a virtue in the same terms as one another — averages just <strong>0.06</strong> across virtue families, and never rises above 0.10 even for the family every company names. Behavioral alignment scores 100 on predominance and 78 on internal consistency, but 10 on generality. Each company returns to “helpfulness” repeatedly and reliably, and each means something of its own by it. The soft virtues are thinner still: political and civic integrity is stated by four companies in eight documents and scores 26, which is what a contested good looks like in a corpus — present enough to be visible, too unevenly held to be a shared commitment.</p>
+      </div>
     </section>
 
-    <section id="flows" class="prose flow-section">
+    <section id="risks" class="prose figure-section">
+      <h2>Risks</h2>
+      <p class="block-sub">The thematic families of harm the corpus sets out to pre-empt, ranked by the same measure.</p>
+      <label class="block-sort">Rank by
+        <select id="risk-sort" class="side-select" aria-label="Rank risk families">
+          <option value="consistency-desc">Consistency · most first</option>
+          <option value="consistency-asc">Consistency · least first</option>
+          <option value="documents">Documents</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </label>
+      <div class="chart-wrap"><svg id="risk-chart" class="bar-chart" role="img" aria-label="Thematic families of risks ranked by consistency"></svg></div>
+      <p class="block-caption"><span id="risk-count" class="figure-count"></span> Hover a bar for the families’ most frequent items.</p>
+
+      <div class="findings">
+        <h3>What risks do companies set out to mitigate, and how consistently are they defined?</h3>
+        <p>Risks are where the documentation actually lives. There are 1,605 coded risk statements against 201 for virtues — roughly eight to one — and where two virtue families clear the threshold, <strong>six risk families do</strong>, each of them named by all eight companies. <strong>Content safety and misuse</strong> leads at 73, present in 126 of the 170 documents; then privacy and provenance (68), behavioral alignment and control (68), epistemic integrity (68), societal harms and equity (65), and catastrophic and security risks (64). The recurring items are concrete and shared: jailbreaks in 41 documents, cybersecurity in 32, hallucinations in 31, prompt injection in 28, child sexual abuse in 23, chemical and biological uplift in 20. This is a settled agenda, and it is the same agenda everywhere.</p>
+        <p>Companies also agree more about harms than about goods. Generality across risk families averages <strong>0.16</strong>, against 0.06 for virtues — nearly three times higher — and rises to 0.28 for content safety and misuse and 0.42 for CBRN specifically. It is easier to say the same thing as a competitor about what a model must not do than about what it should be. But agreement stops at the political edge: <strong>political and civic integrity</strong> is stated by only three companies in fifteen documents and scores 42, and capability and general harms fall lower still. The pattern across both figures is the same — the field converges wherever a harm is legible to regulators and insurers, and fragments wherever a value is contested.</p>
+      </div>
+    </section>
+
+    <section id="flows" class="prose figure-section">
       <h2>From company to evaluation</h2>
-      <p>The rankflow follows the stack in full: company, thematic category, training category, benchmark category. Flow widths preserve weighted source records, where a record spanning several training or benchmarking categories has its weight divided between those paths, so that companies with more documents are not over-represented by duplication alone. Colours follow each flow’s source at a given stage, in the manner of a RAWGraphs alluvial. Hover a line to isolate it and highlight both endpoints; hover a node to isolate everything passing through it.</p>
-      <div class="flow-wrap"><svg id="alluvial" role="img" aria-label="Alluvial diagram of company, thematic category, training category and benchmark category"></svg></div>
-      <p class="meta">Undisclosed training and benchmarking are omitted from this view to keep the disclosed associations legible.</p>
+      <p class="block-sub">The full stack in one figure: company, whether the statement is a virtue or a risk, its thematic family, the training applied, and the benchmark used to check it.</p>
+      <p>Flow widths preserve weighted source records, where a record spanning several training or benchmarking categories has its weight divided between those paths, so companies with more documents are not over-represented by duplication alone. Hover a flow to isolate it; the nodes it touches keep their labels while the rest fall back.</p>
+      <div class="flow-wrap"><svg id="alluvial" role="img" aria-label="Alluvial diagram from company through virtue or risk, thematic category, training and benchmark"></svg></div>
+      <p class="block-caption">Records that disclose neither training nor benchmark are hidden by default; the sidebar restores them.</p>
+
+      <div class="findings">
+        <h3>What training goes with which families, and what benchmarks evaluate it?</h3>
+        <p>The stack divides according to whether a thing is a good or a harm. <strong>Virtues are taught; risks are contained.</strong> Where a virtue in behavioral alignment is trained, it goes to supervised training (35%) and preference learning (26%) — methods that write a disposition into the weights. Where the corresponding <em>risk</em> is trained, the same two methods hold only 19% each, and inference-time filtering, hard constraints and runtime safeguards take over. For content safety and misuse the split is starker: inference-time filtering (26%), hard constraints (17%) and data curation (17%) lead, and for catastrophic and security risks the largest single path in the whole figure is to <strong>runtime safeguards</strong> — a guard sitting outside the model at the moment of use. The heaviest flows in the corpus describe containment at the edge rather than alignment in the weights.</p>
+        <p>Evaluation, by contrast, barely differentiates at all. Whatever the training, the benchmark is overwhelmingly a <strong>task-performance benchmark</strong>: it is the leading destination for inference-time filtering, supervised training, preference learning, hard constraints, data curation, runtime safeguards and adversarial training alike. The forms that would actually test a safeguard — adversarial stress tests, interactive scenarios, behavioural probes — appear at a fraction of the weight. A single evaluative form absorbs the entire stack, which means a model can be trained in seven different ways and shown to be aligned in one. The proliferation visible on the left of the figure narrows to a bottleneck on the right.</p>
+      </div>
     </section>
 
     <section id="limitations" class="prose">
       <h2>Limitations</h2>
-      <p>The map captures published descriptions, which vary widely in scope, detail and genre. A company that publishes more will produce more source records; the weighting keeps duplicated records from inflating that further, but it cannot manufacture disclosure where none exists. Absence from a matrix therefore means absence from the collected documentation, not necessarily absence from the model-development process. Repositories, where a good deal of decision-making is encoded, are left out of this reading entirely.</p>
+      <p>The map captures published descriptions, which vary widely in scope, detail and genre. A company that publishes more will produce more source records; the weighting keeps duplicated records from inflating that further, but it cannot manufacture disclosure where none exists. Absence from a figure therefore means absence from the collected documentation, not necessarily absence from the model-development process. Generality is measured on the words companies use, so two firms describing the same harm in different registers will score low even where they mean the same thing. Repositories, where a good deal of decision-making is encoded, are left out of this reading entirely.</p>
     </section>
   </main>
 

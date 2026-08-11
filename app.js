@@ -1,383 +1,156 @@
 const state = {
   data: null,
   companies: new Set(),
-  categories: new Set(),
-  categorySearch: "",
-  sort: { virtues: "constancy", risks: "constancy" },
-  documentSort: "date-desc",
-  associationSort: "count",
+  kinds: new Set(),
+  sort: { virtue: "consistency-desc", risk: "consistency-desc" },
+  showUndisclosed: false,
 };
 
 const $ = selector => document.querySelector(selector);
 const clean = value => String(value || "").trim();
 const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" }[char]));
-const yearNumber = value => Number.parseInt(value, 10) || 0;
-const uniqueBy = (values, keyFn) => { const seen = new Set(); return values.filter(value => { const key = keyFn(value); if (seen.has(key)) return false; seen.add(key); return true; }); };
-const activeCompanies = () => state.companies.size ? state.companies : new Set(state.data.companies.map(company => company.id));
-const visibleCompany = row => activeCompanies().has(row.company);
-const visibleCategory = row => !state.categories.size || state.categories.has(row.category);
 const notReported = value => !clean(value) || clean(value).toLowerCase() === "not reported";
+const activeCompanies = () => state.companies.size ? state.companies : new Set(state.data.companies.map(company => company.id));
+const activeKinds = () => state.kinds.size ? state.kinds : new Set(["Virtue", "Risk"]);
+const pct = value => Math.round(value * 100);
 
-/* Colour is carried by risk_virtue_category. With ~80 categories a flat palette
-   would repeat arbitrarily, so each thematic family gets a hue and its
-   categories are spread across that hue's lightness range. */
-const THEMATIC_HUE = {
-  "Behavioral alignment & control": [262, 42],
-  "Capability & performance": [203, 44],
-  "Catastrophic & security risks": [354, 46],
-  "Content safety & misuse": [20, 55],
-  "Economic & institutional effects": [40, 52],
-  "Epistemic integrity": [172, 38],
-  "Human wellbeing & interaction": [330, 40],
-  "Political & civic integrity": [288, 34],
-  "Privacy, rights & provenance": [224, 40],
-  "Societal harms & equity": [96, 38],
-  "General / cross-cutting": [40, 7],
-};
-const categoryColor = new Map();
-function buildPalette() {
-  const families = new Map();
-  [...state.data.virtues, ...state.data.risks].forEach(row => {
-    const family = families.get(row.thematic) || new Map();
-    family.set(row.category, (family.get(row.category) || 0) + 1);
-    families.set(row.thematic, family);
-  });
-  families.forEach((categories, thematic) => {
-    const [hue, saturation] = THEMATIC_HUE[thematic] || [40, 10];
-    const names = [...categories.keys()].sort();
-    names.forEach((name, index) => {
-      const step = names.length > 1 ? index / (names.length - 1) : 0.35;
-      categoryColor.set(name, `hsl(${hue} ${saturation}% ${86 - step * 24}%)`);
-    });
-  });
-}
-const color = category => categoryColor.get(category) || "hsl(40 8% 82%)";
+/* The three parts of consistency, in the order they are argued. */
+const COMPONENTS = [
+  { key: "predominance", label: "Predominance", hint: "present and frequent across the companies’ documents" },
+  { key: "generality", label: "Generality", hint: "defined in the same terms from one company to the next" },
+  { key: "consistency", label: "Consistency", hint: "recurs steadily inside each company’s own corpus" },
+];
 
-const EMPTY_METRIC = { score: 0, label: "Variable", similarity: 0, recurrence: 0, persistence: 0, documents: 0 };
-
-/* Constancy is measured at two levels. An item chip carries how consistently a
-   company states that particular item; the category row carries how consistently
-   it states the concept, which is the level most claims are made at. */
-function metricFor(company, itemKey) {
-  return state.data.constancy[`${company}::${itemKey}`] || EMPTY_METRIC;
-}
-function categoryMetricFor(company, category, kind) {
-  return state.data.categoryConstancy[`${company}::${kind}::${category}`] || EMPTY_METRIC;
-}
+/* ------------------------------------------------------------------ tooltip */
 
 function moveTip(event) {
   const node = $("#tooltip");
-  node.style.left = `${Math.max(8, Math.min(window.innerWidth - 390, event.clientX + 14))}px`;
-  node.style.top = `${Math.max(8, Math.min(window.innerHeight - Math.min(520, node.offsetHeight) - 12, event.clientY + 14))}px`;
+  node.style.left = `${Math.max(8, Math.min(window.innerWidth - node.offsetWidth - 14, event.clientX + 14))}px`;
+  node.style.top = `${Math.max(8, Math.min(window.innerHeight - node.offsetHeight - 12, event.clientY + 14))}px`;
 }
 function showTip(event, html) { const node = $("#tooltip"); node.innerHTML = html; node.classList.add("visible"); moveTip(event); }
 function hideTip() { $("#tooltip").classList.remove("visible"); }
-function attachTip(node, html) {
-  node.addEventListener("mouseenter", event => showTip(event, html));
-  node.addEventListener("mousemove", moveTip);
-  node.addEventListener("mouseleave", hideTip);
-  node.addEventListener("focus", event => showTip({ clientX: node.getBoundingClientRect().right, clientY: node.getBoundingClientRect().bottom }, html));
-  node.addEventListener("blur", hideTip);
-}
 
-function headings(container, label) {
-  const columns = state.data.companies.filter(company => activeCompanies().has(company.id));
-  container.style.gridTemplateColumns = `var(--label-w) repeat(${columns.length}, var(--col-w))`;
-  container.innerHTML = `<div class="co-head spacer">${esc(label)}</div>${columns.map(company => `<div class="co-head"><span class="co-name">${esc(company.label)}</span></div>`).join("")}`;
-  return columns;
-}
+/* ------------------------------------- 1 & 2 · thematic families and their consistency */
 
-/* ---------------------------------------------------------------- documents */
-
-function compareDocuments(a, b) {
-  if (state.documentSort === "name") return a.title.localeCompare(b.title);
-  if (state.documentSort === "date-asc") return yearNumber(a.year) - yearNumber(b.year) || a.title.localeCompare(b.title);
-  if (state.documentSort === "type") return clean(a.type).localeCompare(clean(b.type)) || a.title.localeCompare(b.title);
-  return yearNumber(b.year) - yearNumber(a.year) || a.title.localeCompare(b.title);
-}
-
-function documentTooltip(source) {
-  return `<strong>${esc(source.title)}</strong>`
-    + `<span class="tip-category">${esc(source.group)}</span>`
-    + `<div class="metric-grid">`
-    + `<span>Year <b>${esc(source.year || "undated")}</b></span>`
-    + `<span>Type <b>${esc(source.type || "Document")}</b></span>`
-    + `<span>Model <b>${esc(source.model || "—")}</b></span>`
-    + `<span>Company <b>${esc(source.company_label)}</b></span>`
-    + `</div>`
-    + `<span class="tip-extra">${source.categories.length} risk / virtue categor${source.categories.length === 1 ? "y" : "ies"} coded in this document.</span>`;
-}
-
-function renderDocuments() {
-  const container = $("#document-grid");
-  const columns = headings(container, "Document category");
-  let shown = 0;
-  state.data.documentGroups.forEach(groupName => {
-    const label = document.createElement("div");
-    label.className = "cat-row-label";
-    label.textContent = groupName;
-    container.append(label);
-    columns.forEach(company => {
-      const cell = document.createElement("div");
-      cell.className = "cat-cell docs-cell";
-      state.data.documents
-        .filter(source => source.company === company.id && source.group === groupName)
-        .filter(source => !state.categories.size || source.categories.some(category => state.categories.has(category)))
-        .sort(compareDocuments)
-        .forEach(source => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "document-card";
-          button.setAttribute("aria-label", `${source.title}, ${source.year || "undated"}`);
-          attachTip(button, documentTooltip(source));
-          cell.append(button);
-          shown += 1;
-        });
-      if (!cell.childElementCount) cell.textContent = "—";
-      container.append(cell);
-    });
+function thematicRows(kind) {
+  const source = kind === "virtue" ? state.data.virtues : state.data.risks;
+  const records = new Map();
+  source.forEach(row => {
+    const entry = records.get(row.thematic) || { items: new Map(), documents: new Set(), companies: new Set() };
+    entry.items.set(row.item, (entry.items.get(row.item) || 0) + 1);
+    entry.documents.add(row.document_id);
+    entry.companies.add(row.company);
+    records.set(row.thematic, entry);
   });
-  $("#document-count").textContent = `${shown} document${shown === 1 ? "" : "s"} shown.`;
+  return [...records].map(([thematic, entry]) => ({
+    thematic,
+    metric: state.data.thematicConsistency[`${kind}::${thematic}`] || { score: 0, label: "Inconsistent", predominance: 0, generality: 0, consistency: 0, companies: 0, documents: 0 },
+    documents: entry.documents.size,
+    companies: entry.companies.size,
+    records: [...entry.items.values()].reduce((sum, value) => sum + value, 0),
+    examples: [...entry.items].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name]) => name),
+  })).filter(row => row.metric.documents > 1);
 }
 
-/* -------------------------------------------------------- virtues and risks */
-
-function mergeCommitments(rows, kind) {
-  const groups = new Map();
-  rows.filter(visibleCompany).filter(visibleCategory).forEach(row => {
-    const key = `${row.company}::${row.item_key}`;
-    if (!groups.has(key)) groups.set(key, { company: row.company, kind, itemKey: row.item_key, item: row.item, occurrences: [] });
-    groups.get(key).occurrences.push(row);
-  });
-  return [...groups.values()].map(group => {
-    const counts = new Map();
-    group.occurrences.forEach(row => counts.set(row.category, (counts.get(row.category) || 0) + 1));
-    group.category = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "Other";
-    group.metric = metricFor(group.company, group.itemKey);
-    group.constancy = group.metric.label;
-    const years = group.occurrences.map(row => yearNumber(row.document_year)).filter(Boolean);
-    group.latestYear = years.length ? Math.max(...years) : 0;
-    group.earliestYear = years.length ? Math.min(...years) : 0;
-    group.documents = new Set(group.occurrences.map(row => row.document_id)).size;
-    group.occurrences.sort((a, b) => yearNumber(b.document_year) - yearNumber(a.document_year) || clean(a.document_title).localeCompare(clean(b.document_title)));
-    return group;
-  });
+function sortThematic(rows, sort) {
+  const copy = [...rows];
+  if (sort === "consistency-asc") return copy.sort((a, b) => a.metric.score - b.metric.score || a.thematic.localeCompare(b.thematic));
+  if (sort === "name") return copy.sort((a, b) => a.thematic.localeCompare(b.thematic));
+  if (sort === "documents") return copy.sort((a, b) => b.documents - a.documents || a.thematic.localeCompare(b.thematic));
+  return copy.sort((a, b) => b.metric.score - a.metric.score || a.thematic.localeCompare(b.thematic));
 }
 
-function compareCommitments(sort) {
-  return (a, b) => {
-    if (sort === "name") return a.item.localeCompare(b.item);
-    if (sort === "date-desc") return b.latestYear - a.latestYear || a.item.localeCompare(b.item);
-    if (sort === "date-asc") return a.earliestYear - b.earliestYear || a.item.localeCompare(b.item);
-    return b.metric.score - a.metric.score || a.item.localeCompare(b.item);
-  };
-}
-
-function commitmentTooltip(group) {
-  const metric = group.metric;
-  const categoryMetric = categoryMetricFor(group.company, group.category, group.kind);
-  const entries = uniqueBy(group.occurrences, row => `${row.document_id}::${clean(row.definition).toLowerCase()}`);
-  return `<strong>${esc(group.item)}</strong>`
-    + `<span class="tip-category">${esc(group.category)} · ${esc(group.company)} · ${esc(group.constancy)} · constancy ${Math.round(metric.score * 100)}/100</span>`
-    + `<div class="metric-grid">`
-    + `<span>Definition similarity <b>${Math.round(metric.similarity * 100)}</b></span>`
-    + `<span>Document recurrence <b>${Math.round(metric.recurrence * 100)}</b></span>`
-    + `<span>Temporal persistence <b>${Math.round(metric.persistence * 100)}</b></span>`
-    + `<span>${esc(group.category)} overall <b>${Math.round(categoryMetric.score * 100)}</b></span>`
-    + `</div>`
-    + `<span class="tip-extra">${group.documents} distinct document${group.documents === 1 ? "" : "s"}${group.latestYear ? ` · ${group.earliestYear === group.latestYear ? group.latestYear : `${group.earliestYear}–${group.latestYear}`}` : ""}. ${esc(group.company)} states ${esc(group.category)} as a whole ${categoryMetric.label === "Constant" ? "consistently" : "variably"}, across ${categoryMetric.documents} document${categoryMetric.documents === 1 ? "" : "s"}.</span>`
-    + `<div class="definition-list">${entries.map(row => `<section><b>${esc(row.document_title || "Untitled document")}${row.document_year ? ` (${esc(row.document_year)})` : ""}</b><p>${esc(row.definition || "No definition disclosed in this document.")}</p></section>`).join("")}</div>`;
-}
-
-function commitmentCard(group) {
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "value-card commitment-card";
-  card.style.background = color(group.category);
-  card.dataset.constancy = group.constancy;
-  card.innerHTML = `<span class="card-name">${esc(group.item)}</span>`
-    + `<span class="constancy-score">${Math.round(group.metric.score * 100)}</span>`
-    + (group.documents > 1 ? `<span class="source-count">${group.documents}</span>` : "")
-    + `<span class="definition">${group.occurrences.map(row => `<b>${esc(row.document_title)}${row.document_year ? ` (${esc(row.document_year)})` : ""}</b> — ${esc(row.definition || "No definition disclosed in this document.")}`).join("<br>")}</span>`;
-  attachTip(card, commitmentTooltip(group));
-  return card;
-}
-
-function renderCommitments(target, rows, countTarget, which) {
-  const container = $(target);
-  const columns = headings(container, "Risk / virtue category");
-  const kind = which === "virtues" ? "virtue" : "risk";
-  const groups = mergeCommitments(rows, kind);
-  const sort = state.sort[which];
-
-  /* A row is a category, so it is ranked by how consistently the visible
-     companies state that category — not by the average of its item chips. */
-  const categories = [...new Set(groups.map(group => group.category))].map(category => {
-    const members = groups.filter(group => group.category === category);
-    const present = [...new Set(members.map(group => group.company))].map(company => categoryMetricFor(company, category, kind));
-    const mean = present.reduce((sum, metric) => sum + metric.score, 0) / Math.max(1, present.length);
-    /* A row is a category across companies, so how widely it is held counts as
-       well as how steadily each company states it: a category only one company
-       names is not yet a settled position in the field. */
-    const coverage = Math.min(1, Math.log(1 + present.length) / Math.log(1 + 3));
-    return {
-      category,
-      score: mean * coverage,
-      mean,
-      companies: present.length,
-      constant: present.filter(metric => metric.label === "Constant").length,
-      latestYear: Math.max(0, ...members.map(group => group.latestYear)),
-      earliestYear: Math.min(...members.map(group => group.earliestYear || Infinity)),
-    };
-  }).sort((a, b) => {
-    if (sort === "name") return a.category.localeCompare(b.category);
-    if (sort === "date-desc") return b.latestYear - a.latestYear || a.category.localeCompare(b.category);
-    if (sort === "date-asc") return a.earliestYear - b.earliestYear || a.category.localeCompare(b.category);
-    return b.score - a.score || a.category.localeCompare(b.category);
-  });
-
-  categories.forEach(meta => {
-    const label = document.createElement("div");
-    label.className = "cat-row-label";
-    const span = Number.isFinite(meta.earliestYear) && meta.latestYear
-      ? (meta.earliestYear === meta.latestYear ? `${meta.latestYear}` : `${meta.earliestYear}–${meta.latestYear}`)
-      : "";
-    label.innerHTML = `${esc(meta.category)}<span class="constancy"><i class="swatch" style="background:${color(meta.category)}"></i>`
-      + `constancy ${Math.round(meta.mean * 100)}/100 · constant in ${meta.constant} of ${meta.companies} compan${meta.companies === 1 ? "y" : "ies"}${span ? ` · ${span}` : ""}</span>`;
-    container.append(label);
-    columns.forEach(company => {
-      const cell = document.createElement("div");
-      cell.className = "cat-cell";
-      groups.filter(group => group.company === company.id && group.category === meta.category)
-        .sort(compareCommitments(sort))
-        .forEach(group => cell.append(commitmentCard(group)));
-      if (!cell.childElementCount) cell.textContent = "—";
-      container.append(cell);
-    });
-  });
-  if (countTarget) {
-    $(countTarget).textContent = `${groups.length} merged chip${groups.length === 1 ? "" : "s"} across ${categories.length} categor${categories.length === 1 ? "y" : "ies"}.`;
-  }
-}
-
-/* -------------------------------------------------- training / benchmarking */
-
-function renderAssociation(target, rows, processKey, exampleKey) {
+function renderThematic(target, kind) {
   const svg = d3.select(target);
   svg.selectAll("*").remove();
-  const filtered = rows.filter(visibleCompany).filter(visibleCategory).filter(row => !notReported(row[processKey]));
+  const rows = sortThematic(thematicRows(kind), state.sort[kind]);
 
-  /* One source record may span several process categories; its weight is
-     divided between them so busier documents do not dominate. */
-  const pairs = new Map();
-  d3.group(filtered, row => row.source_record_id || `${row.company}::${row.item}`).forEach(sourceRows => {
-    const unique = uniqueBy(sourceRows, row => `${row.category}::${row[processKey]}`);
-    const weight = 1 / Math.max(1, unique.length);
-    unique.forEach(row => {
-      const key = `${row.category}::${row[processKey]}`;
-      if (!pairs.has(key)) pairs.set(key, { category: row.category, process: row[processKey], value: 0, examples: [], items: [] });
-      const pair = pairs.get(key);
-      pair.value += weight;
-      const example = clean(row[exampleKey]) || row.item;
-      if (example && pair.examples.length < 5 && !pair.examples.includes(example)) pair.examples.push(example);
-      if (pair.items.length < 5 && !pair.items.includes(row.item)) pair.items.push(row.item);
+  const margin = { top: 40, right: 190, bottom: 40, left: 232 };
+  const rowHeight = 40;
+  const width = 900;
+  const height = margin.top + margin.bottom + rows.length * rowHeight;
+  svg.attr("viewBox", `0 0 ${width} ${height}`).style("height", `${height}px`);
+
+  const x = d3.scaleLinear().domain([0, 1]).range([margin.left, width - margin.right]);
+  const y = d3.scaleBand().domain(rows.map(row => row.thematic)).range([margin.top, height - margin.bottom]).padding(0.34);
+
+  /* A quiet grid, and a marked threshold: at 45 a family reads as consistent. */
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+  svg.append("g").selectAll("line").data(ticks).join("line")
+    .attr("x1", d => x(d)).attr("x2", d => x(d))
+    .attr("y1", margin.top - 12).attr("y2", height - margin.bottom).attr("class", "bar-grid");
+  svg.append("g").selectAll("text").data(ticks).join("text")
+    .attr("class", "bar-axis").attr("x", d => x(d)).attr("y", margin.top - 20).attr("text-anchor", "middle")
+    .text(d => pct(d));
+  svg.append("line").attr("class", "bar-threshold")
+    .attr("x1", x(0.45)).attr("x2", x(0.45)).attr("y1", margin.top - 12).attr("y2", height - margin.bottom);
+  svg.append("text").attr("class", "bar-threshold-label")
+    .attr("x", x(0.45)).attr("y", height - margin.bottom + 24).attr("text-anchor", "middle")
+    .text("consistent from 45");
+
+  rows.forEach(row => {
+    const top = y(row.thematic);
+    const group = svg.append("g").attr("class", "bar-row");
+
+    group.append("text").attr("class", "bar-label")
+      .attr("x", margin.left - 12).attr("y", top + y.bandwidth() / 2 + 4).attr("text-anchor", "end")
+      .text(row.thematic);
+
+    /* Each segment is one third of one component, so the bar's full length is
+       the score and its composition shows what produced it. */
+    let cursor = 0;
+    COMPONENTS.forEach(component => {
+      const value = (row.metric[component.key] || 0) / 3;
+      group.append("rect").attr("class", `bar-segment seg-${component.key}`)
+        .attr("x", x(cursor)).attr("y", top)
+        .attr("width", Math.max(0, x(cursor + value) - x(cursor))).attr("height", y.bandwidth());
+      cursor += value;
     });
+    group.append("rect").attr("class", "bar-outline")
+      .attr("x", x(0)).attr("y", top).attr("width", x(cursor) - x(0)).attr("height", y.bandwidth());
+
+    group.append("text").attr("class", "bar-value")
+      .attr("x", x(cursor) + 10).attr("y", top + y.bandwidth() / 2 + 4)
+      .text(`${pct(row.metric.score)} · ${row.metric.label.toLowerCase()}`);
+    group.append("text").attr("class", "bar-scale")
+      .attr("x", width - margin.right + 108).attr("y", top + y.bandwidth() / 2 + 4)
+      .text(`${row.companies} co · ${row.documents} docs`);
+
+    const html = `<strong>${esc(row.thematic)}</strong>`
+      + `<span class="tip-category">${kind === "virtue" ? "Virtue" : "Risk"} family · ${esc(row.metric.label)} · consistency ${pct(row.metric.score)}/100</span>`
+      + `<div class="metric-grid">${COMPONENTS.map(component =>
+        `<span>${component.label} <b>${pct(row.metric[component.key] || 0)}</b></span>`).join("")}</div>`
+      + `<span class="tip-extra">Named by ${row.companies} of ${state.data.companies.length} companies, in ${row.documents} of ${state.data.documents.length} documents, over ${row.records} coded statements.</span>`
+      + `<div class="tip-items">${esc(row.examples.join(" · "))}</div>`;
+    group.on("mouseenter", event => showTip(event, html)).on("mousemove", moveTip).on("mouseleave", hideTip);
   });
 
-  const all = [...pairs.values()];
-  const minimum = 3;
-  const categoryTotals = d3.rollup(all, values => d3.sum(values, d => d.value), d => d.category);
-  const processTotals = d3.rollup(all, values => d3.sum(values, d => d.value), d => d.process);
-  const displayed = all.filter(pair => pair.value >= minimum);
-  if (!displayed.length) {
-    svg.attr("viewBox", "0 0 900 110").append("text").attr("x", 18).attr("y", 52).attr("class", "association-empty")
-      .text("No association reaches three weighted source records under the selected filters.");
-    return;
-  }
-
-  const meanConstancy = new Map();
-  const seenPair = new Set();
-  [["virtue", state.data.virtues], ["risk", state.data.risks]].forEach(([kind, source]) => {
-    source.filter(visibleCompany).forEach(row => {
-      const pair = `${row.company}::${kind}::${row.category}`;
-      if (seenPair.has(pair)) return;
-      seenPair.add(pair);
-      const entry = meanConstancy.get(row.category) || { sum: 0, n: 0 };
-      entry.sum += categoryMetricFor(row.company, row.category, kind).score;
-      entry.n += 1;
-      meanConstancy.set(row.category, entry);
-    });
-  });
-  const constancyOf = category => { const entry = meanConstancy.get(category); return entry ? entry.sum / entry.n : 0; };
-
-  let categories = [...new Set(displayed.map(pair => pair.category))];
-  let processes = [...new Set(displayed.map(pair => pair.process))];
-  if (state.associationSort === "name") {
-    categories.sort((a, b) => a.localeCompare(b));
-    processes.sort((a, b) => a.localeCompare(b));
-  } else if (state.associationSort === "constancy") {
-    categories.sort((a, b) => constancyOf(b) - constancyOf(a) || a.localeCompare(b));
-    processes.sort((a, b) => (processTotals.get(b) || 0) - (processTotals.get(a) || 0));
-  } else {
-    categories.sort((a, b) => (categoryTotals.get(b) || 0) - (categoryTotals.get(a) || 0) || a.localeCompare(b));
-    processes.sort((a, b) => (processTotals.get(b) || 0) - (processTotals.get(a) || 0) || a.localeCompare(b));
-  }
-  categories = categories.slice(0, 20);
-  const categorySet = new Set(categories);
-  const visible = displayed.filter(pair => categorySet.has(pair.category));
-  processes = processes.filter(process => visible.some(pair => pair.process === process));
-
-  const cell = 40;
-  const margin = { top: 190, right: 30, bottom: 34, left: 215 };
-  const width = Math.max(900, margin.left + margin.right + processes.length * cell);
-  const height = margin.top + margin.bottom + categories.length * cell;
-  svg.attr("viewBox", `0 0 ${width} ${height}`).style("min-width", `${width}px`).style("height", `${height}px`);
-
-  const x = d3.scaleBand().domain(processes).range([margin.left, width - margin.right]).padding(0.12);
-  const y = d3.scaleBand().domain(categories).range([margin.top, height - margin.bottom]).padding(0.12);
-  const radius = d3.scaleSqrt().domain([0, d3.max(visible, d => d.value)]).range([3.5, 16]);
-
-  svg.append("g").selectAll("line").data(processes).join("line")
-    .attr("x1", d => x(d) + x.bandwidth() / 2).attr("x2", d => x(d) + x.bandwidth() / 2)
-    .attr("y1", margin.top - 6).attr("y2", height - margin.bottom).attr("stroke", "#ded7cb");
-  svg.append("g").selectAll("line").data(categories).join("line")
-    .attr("x1", margin.left).attr("x2", width - margin.right)
-    .attr("y1", d => y(d) + y.bandwidth() / 2).attr("y2", d => y(d) + y.bandwidth() / 2).attr("stroke", "#ded7cb");
-  svg.append("g").selectAll("text").data(processes).join("text")
-    .attr("class", "association-axis association-x")
-    .attr("transform", d => `translate(${x(d) + x.bandwidth() / 2},${margin.top - 14}) rotate(-48)`)
-    .attr("text-anchor", "start").text(d => d);
-  svg.append("g").selectAll("text").data(categories).join("text")
-    .attr("class", "association-axis association-y")
-    .attr("x", margin.left - 12).attr("y", d => y(d) + y.bandwidth() / 2 + 4)
-    .attr("text-anchor", "end").text(d => d);
-
-  svg.append("g").selectAll("circle").data(visible).join("circle")
-    .attr("class", "association-dot")
-    .attr("cx", d => x(d.process) + x.bandwidth() / 2)
-    .attr("cy", d => y(d.category) + y.bandwidth() / 2)
-    .attr("r", d => radius(d.value))
-    .attr("fill", d => color(d.category))
-    .on("mouseenter", (event, d) => showTip(event, `<strong>${esc(d.category)} → ${esc(d.process)}</strong>`
-      + `<span class="tip-category">${d.value.toFixed(1)} weighted source records · mean constancy ${Math.round(constancyOf(d.category) * 100)}/100</span>`
-      + `<span>${esc(uniqueBy(d.examples, value => value).join(" · "))}</span>`
-      + (d.items.length ? `<span class="tip-extra">Items: ${esc(d.items.join(" · "))}</span>` : "")))
-    .on("mousemove", moveTip).on("mouseleave", hideTip);
+  $(`#${kind}-count`).textContent = `${rows.length} families · ${rows.filter(row => row.metric.label === "Consistent").length} consistent.`;
 }
 
-/* ------------------------------------------------------------------- rankflow */
+/* --------------------------------------------------------- 3 · the rankflow */
+
+const STAGES = ["company", "kind", "thematic", "training_category", "benchmark_category"];
+const STAGE_LABELS = {
+  company: "Company",
+  kind: "Virtue or risk",
+  thematic: "Thematic category",
+  training_category: "Training",
+  benchmark_category: "Benchmark",
+};
 
 function renderAlluvial() {
   const svg = d3.select("#alluvial");
   svg.selectAll("*").remove();
-  const width = Math.max(950, $("#alluvial").clientWidth || 950);
-  const height = 680;
+  const width = Math.max(1000, $("#alluvial").clientWidth || 1000);
+  const height = 720;
   svg.attr("viewBox", `0 0 ${width} ${height}`);
 
-  const flows = state.data.flows.filter(visibleCompany).filter(visibleCategory)
-    .filter(flow => !notReported(flow.training_category) && !notReported(flow.benchmark_category));
-  const stages = ["company", "thematic", "training_category", "benchmark_category"];
-  const labels = { company: "Company", thematic: "Thematic category", training_category: "Training category", benchmark_category: "Benchmark category" };
+  const flows = state.data.flows
+    .filter(flow => activeCompanies().has(flow.company))
+    .filter(flow => activeKinds().has(flow.kind))
+    .filter(flow => state.showUndisclosed || (!notReported(flow.training_category) && !notReported(flow.benchmark_category)));
 
   const nodes = [];
   const nodeIds = new Map();
@@ -387,76 +160,94 @@ function renderAlluvial() {
     if (!nodeIds.has(id)) { nodeIds.set(id, nodes.length); nodes.push({ stage, name, total: 0 }); }
     return nodeIds.get(id);
   };
-  flows.forEach(flow => stages.slice(0, -1).forEach((stage, index) => {
+  flows.forEach(flow => STAGES.slice(0, -1).forEach((stage, index) => {
+    const next = STAGES[index + 1];
     const source = nodeFor(stage, flow[stage]);
-    const target = nodeFor(stages[index + 1], flow[stages[index + 1]]);
+    const target = nodeFor(next, flow[next]);
     const key = `${source}::${target}`;
-    if (!linkMap.has(key)) linkMap.set(key, { source, target, value: 0, stage: labels[stage] + " → " + labels[stages[index + 1]] });
+    if (!linkMap.has(key)) linkMap.set(key, { source, target, value: 0, stage: `${STAGE_LABELS[stage]} → ${STAGE_LABELS[next]}` });
     linkMap.get(key).value += flow.value;
     nodes[source].total += flow.value;
     nodes[target].total += flow.value;
   }));
 
-  const links = [...linkMap.values()].filter(link => link.value >= 1);
+  const links = [...linkMap.values()].filter(link => link.value >= 0.75);
   if (!links.length) {
-    svg.append("text").attr("x", 20).attr("y", 45).attr("class", "sankey-label").text("No flows match the selected filters.");
+    svg.append("text").attr("x", 20).attr("y", 46).attr("class", "sankey-label").text("No flows match the current selection.");
     return;
   }
 
-  let layout = d3.sankey().nodeWidth(13).nodePadding(8).extent([[12, 40], [width - 12, height - 10]]);
+  let layout = d3.sankey().nodeWidth(12).nodePadding(9).extent([[10, 44], [width - 10, height - 12]]);
   if (typeof layout.nodeSort === "function") layout = layout.nodeSort((a, b) => b.value - a.value);
   const graph = layout({ nodes: nodes.map(node => ({ ...node })), links: links.map(link => ({ ...link })) });
 
-  const stagePalettes = {
+  const palettes = {
     company: ["#65B7D2", "#3B7DB8", "#8BC9B3", "#8B77B5", "#E29B72", "#6EA66D", "#D8B94C", "#C66F7A"],
+    kind: ["#7FA9C9", "#D98F6E"],
     thematic: ["#F19A7D", "#9CCB89", "#E5D36B", "#72B8C7", "#C49BCB", "#E5B06B", "#8FBF9F", "#D98F8F", "#A9B7DC", "#CFC07A", "#7FC2B4"],
     training_category: ["#F4A582", "#92C5DE", "#B8E186", "#D8B365", "#C2A5CF", "#80CDC1", "#E8A0BF"],
     benchmark_category: ["#F6D55C", "#ED9B40", "#7BC8A4", "#6C91BF", "#D48FB3", "#9FBF6F"],
   };
   const stageColor = new Map();
-  stages.forEach(stage => {
-    const names = graph.nodes.filter(node => node.stage === stage).sort((a, b) => b.total - a.total).map(node => node.name);
-    names.forEach((name, index) => stageColor.set(`${stage}::${name}`, stagePalettes[stage][index % stagePalettes[stage].length]));
+  STAGES.forEach(stage => {
+    graph.nodes.filter(node => node.stage === stage).sort((a, b) => b.total - a.total)
+      .forEach((node, index) => stageColor.set(`${stage}::${node.name}`, palettes[stage][index % palettes[stage].length]));
   });
 
-  svg.append("g").selectAll("text").data(stages).join("text")
+  svg.append("g").selectAll("text").data(STAGES).join("text")
     .attr("class", "sankey-stage")
-    .attr("x", (_, index) => index === 0 ? 12 : index === stages.length - 1 ? width - 12 : (width - 24) * index / 3 + 12)
-    .attr("text-anchor", (_, index) => index === stages.length - 1 ? "end" : "start")
-    .attr("y", 20).text(stage => labels[stage]);
+    .attr("x", (_, index) => index === 0 ? 10 : index === STAGES.length - 1 ? width - 10 : (width - 20) * index / (STAGES.length - 1) + 10)
+    .attr("text-anchor", (_, index) => index === STAGES.length - 1 ? "end" : "start")
+    .attr("y", 22).text(stage => STAGE_LABELS[stage]);
 
   const link = svg.append("g").attr("fill", "none").selectAll("path").data(graph.links).join("path")
     .attr("class", "rankflow-link").attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => stageColor.get(`${d.source.stage}::${d.source.name}`))
-    .attr("stroke-opacity", 0.48).attr("stroke-width", d => Math.max(1, d.width));
+    .attr("stroke-opacity", 0.46).attr("stroke-width", d => Math.max(1, d.width));
 
   const node = svg.append("g").selectAll("g").data(graph.nodes).join("g").attr("class", "rankflow-node");
   node.append("rect").attr("x", d => d.x0).attr("y", d => d.y0)
     .attr("width", d => d.x1 - d.x0).attr("height", d => Math.max(1, d.y1 - d.y0)).attr("fill", "#171717");
-  node.filter(d => d.y1 - d.y0 > 13).append("text").attr("class", "sankey-label")
-    .attr("x", d => d.x0 < width / 2 ? d.x1 + 4 : d.x0 - 4)
+  const label = node.filter(d => d.y1 - d.y0 > 11).append("text").attr("class", "sankey-label")
+    .attr("x", d => d.x0 < width / 2 ? d.x1 + 5 : d.x0 - 5)
     .attr("y", d => (d.y0 + d.y1) / 2 + 3)
     .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-    .text(d => d.name.length > 26 ? `${d.name.slice(0, 25)}…` : d.name);
+    .text(d => d.name.length > 30 ? `${d.name.slice(0, 29)}…` : d.name);
 
-  node.on("mouseenter", (event, d) => {
-    link.attr("stroke-opacity", candidate => candidate.source === d || candidate.target === d ? 0.9 : 0.05);
-    node.attr("opacity", candidate => candidate === d ? 1 : 0.25);
-    showTip(event, `<strong>${esc(d.name)}</strong><span class="tip-category">${esc(labels[d.stage])}</span><span>${d.total.toFixed(1)} weighted source records</span>`);
-  }).on("mousemove", moveTip).on("mouseleave", () => {
-    link.attr("stroke-opacity", 0.48); node.attr("opacity", 1); hideTip();
-  });
+  /* Hovering lifts everything the flow touches: its links keep full strength,
+     and the nodes at either end have their labels brought forward rather than
+     faded back with the rest. */
+  function focus(activeLinks, activeNodes) {
+    const linkSet = new Set(activeLinks);
+    const nodeSet = new Set(activeNodes);
+    link.attr("stroke-opacity", d => linkSet.has(d) ? 0.92 : 0.04);
+    node.attr("opacity", d => nodeSet.has(d) ? 1 : 0.18);
+    label.classed("is-focused", d => nodeSet.has(d));
+    label.classed("is-dimmed", d => !nodeSet.has(d));
+  }
+  function clearFocus() {
+    link.attr("stroke-opacity", 0.46);
+    node.attr("opacity", 1);
+    label.classed("is-focused", false).classed("is-dimmed", false);
+    hideTip();
+  }
 
   link.on("mouseenter", (event, d) => {
-    link.attr("stroke-opacity", candidate => candidate === d ? 0.96 : 0.05);
-    node.attr("opacity", candidate => candidate === d.source || candidate === d.target ? 1 : 0.16);
+    focus([d], [d.source, d.target]);
     d3.select(event.currentTarget).raise();
     showTip(event, `<strong>${esc(d.source.name)} → ${esc(d.target.name)}</strong>`
       + `<span class="tip-category">${esc(d.stage)}</span>`
-      + `<span>${d.value.toFixed(2)} weighted source records</span>`);
-  }).on("mousemove", moveTip).on("mouseleave", () => {
-    link.attr("stroke-opacity", 0.48); node.attr("opacity", 1); hideTip();
-  });
+      + `<span>${d.value.toFixed(1)} weighted source records</span>`);
+  }).on("mousemove", moveTip).on("mouseleave", clearFocus);
+
+  node.on("mouseenter", (event, d) => {
+    const touching = graph.links.filter(candidate => candidate.source === d || candidate.target === d);
+    const ends = touching.flatMap(candidate => [candidate.source, candidate.target]);
+    focus(touching, [d, ...ends]);
+    showTip(event, `<strong>${esc(d.name)}</strong>`
+      + `<span class="tip-category">${esc(STAGE_LABELS[d.stage])}</span>`
+      + `<span>${d.total.toFixed(1)} weighted source records · ${touching.length} connections</span>`);
+  }).on("mousemove", moveTip).on("mouseleave", clearFocus);
 }
 
 /* ------------------------------------------------------------- stack figure */
@@ -472,8 +263,6 @@ function renderStackOverview() {
     { title: "BENCHMARKING", items: ["Task-performance benchmarks", "Adversarial stress tests", "Interactive scenarios or simulations", "Rubric or criterion-based scoring", "Behavioral probes or audits", "Comparative or human-baseline evaluations"] },
   ];
 
-  /* Slabs are drawn square to the page: the depth comes from an extruded black
-     side and a cast shadow, not from rotating the text. */
   const width = 900;
   const railX = 52;
   const slabX = 104;
@@ -491,8 +280,7 @@ function renderStackOverview() {
     cursor += height + 42;
     return entry;
   });
-  const height = cursor + 10;
-  svg.attr("viewBox", `0 0 ${width} ${height}`);
+  svg.attr("viewBox", `0 0 ${width} ${cursor + 10}`);
 
   svg.append("text").attr("class", "stack-figure-title").attr("x", width / 2).attr("y", 40).attr("text-anchor", "middle")
     .text("The AI alignment stack");
@@ -532,71 +320,64 @@ function renderStackOverview() {
   });
 }
 
-/* --------------------------------------------------------------- controls */
-
-function renderLegend() {
-  const categories = [...categoryColor.keys()].sort();
-  const query = state.categorySearch.toLocaleLowerCase();
-  const legend = $("#legend");
-  legend.innerHTML = categories.filter(category => category.toLocaleLowerCase().includes(query))
-    .map(category => `<div class="legend-chip ${state.categories.has(category) ? "active" : ""}" data-category="${esc(category)}"><span class="swatch" style="background:${color(category)}"></span><span>${esc(category)}</span></div>`).join("")
-    || `<p class="side-hint">No category matches “${esc(state.categorySearch)}”.</p>`;
-  legend.querySelectorAll(".legend-chip").forEach(node => node.addEventListener("click", () => {
-    const category = node.dataset.category;
-    state.categories.has(category) ? state.categories.delete(category) : state.categories.add(category);
-    renderAll();
-  }));
-}
+/* ---------------------------------------------------------------- controls */
 
 function renderCompanies() {
   const list = $("#company-list");
-  list.innerHTML = state.data.companies.map(company => `<li class="${state.companies.has(company.id) ? "active" : ""}" data-id="${esc(company.id)}">${esc(company.label)}</li>`).join("");
+  list.innerHTML = state.data.companies.map(company =>
+    `<li class="${state.companies.has(company.id) ? "active" : ""}" data-id="${esc(company.id)}">${esc(company.label)}</li>`).join("");
   list.querySelectorAll("li").forEach(node => node.addEventListener("click", () => {
     const id = node.dataset.id;
     state.companies.has(id) ? state.companies.delete(id) : state.companies.add(id);
-    renderAll();
+    renderCompanies();
+    renderAlluvial();
   }));
 }
 
-function renderAll() {
-  renderLegend();
-  renderCompanies();
-  renderDocuments();
-  renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count", "virtues");
-  renderCommitments("#risk-grid", state.data.risks, "#risk-count", "risks");
-  renderAssociation("#training-association", state.data.training, "training_category", "training_item");
-  renderAssociation("#benchmark-association", state.data.benchmarking, "benchmark_category", "benchmark");
-  renderAlluvial();
+function renderKinds() {
+  const list = $("#kind-list");
+  list.innerHTML = ["Virtue", "Risk"].map(kind =>
+    `<li class="${state.kinds.has(kind) ? "active" : ""}" data-kind="${kind}">${kind}s</li>`).join("");
+  list.querySelectorAll("li").forEach(node => node.addEventListener("click", () => {
+    const kind = node.dataset.kind;
+    state.kinds.has(kind) ? state.kinds.delete(kind) : state.kinds.add(kind);
+    renderKinds();
+    renderAlluvial();
+  }));
+}
+
+function renderLegend() {
+  $("#component-legend").innerHTML = COMPONENTS.map(component =>
+    `<div class="legend-chip static"><span class="swatch seg-${component.key}"></span><span><b>${component.label}</b> — ${component.hint}</span></div>`).join("");
 }
 
 function start(data) {
   state.data = data;
-  buildPalette();
   renderStackOverview();
-  renderAll();
+  renderLegend();
+  renderCompanies();
+  renderKinds();
+  renderThematic("#virtue-chart", "virtue");
+  renderThematic("#risk-chart", "risk");
+  renderAlluvial();
 
-  $("#compact-commitments").addEventListener("change", event => document.body.classList.toggle("compact-commitments", event.target.checked));
-  $("#show-definitions").addEventListener("change", event => document.body.classList.toggle("show-definitions", event.target.checked));
   $("#virtue-sort").addEventListener("change", event => {
-    state.sort.virtues = event.target.value;
-    renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count", "virtues");
+    state.sort.virtue = event.target.value;
+    renderThematic("#virtue-chart", "virtue");
   });
   $("#risk-sort").addEventListener("change", event => {
-    state.sort.risks = event.target.value;
-    renderCommitments("#risk-grid", state.data.risks, "#risk-count", "risks");
+    state.sort.risk = event.target.value;
+    renderThematic("#risk-chart", "risk");
   });
-  $("#document-sort").addEventListener("change", event => { state.documentSort = event.target.value; renderDocuments(); });
-  $("#association-sort").addEventListener("change", event => {
-    state.associationSort = event.target.value;
-    renderAssociation("#training-association", state.data.training, "training_category", "training_item");
-    renderAssociation("#benchmark-association", state.data.benchmarking, "benchmark_category", "benchmark");
+  $("#show-undisclosed").addEventListener("change", event => {
+    state.showUndisclosed = event.target.checked;
+    renderAlluvial();
   });
-  $("#category-search").addEventListener("input", event => { state.categorySearch = event.target.value; renderLegend(); });
-  $("#reset-categories").addEventListener("click", () => { state.categories.clear(); renderAll(); });
-  $("#reset-companies").addEventListener("click", () => { state.companies.clear(); renderAll(); });
+  $("#reset-companies").addEventListener("click", () => { state.companies.clear(); renderCompanies(); renderAlluvial(); });
+  $("#reset-kinds").addEventListener("click", () => { state.kinds.clear(); renderKinds(); renderAlluvial(); });
   window.addEventListener("resize", () => renderAlluvial());
 }
 
 if (window.VALUE_MAP_DATA) start(window.VALUE_MAP_DATA);
 else fetch("data.json").then(response => response.json()).then(start)
-  .catch(error => $("#documents").insertAdjacentHTML("beforeend", `<p>Could not load the visualisation data: ${esc(error.message)}</p>`));
+  .catch(error => document.body.insertAdjacentHTML("beforeend", `<p>Could not load the visualisation data: ${esc(error.message)}</p>`));

@@ -80,12 +80,13 @@ STOPWORDS = set(
     "most any all each per via within without over under between during while ai llm".split()
 )
 
-# Constancy weights. Definition stability counts for most, then how much of the
-# company's corpus mentions the item, then how much of its timeline it spans.
-W_SIMILARITY, W_RECURRENCE, W_PERSISTENCE = 0.45, 0.35, 0.20
-LONE_DEFINITION_SIMILARITY = 0.30   # a single definition is unproven, not similar
-CONSTANT_THRESHOLD = 0.45
-MIN_DOCUMENTS_FOR_CONSTANT = 2
+# Consistency has three equally weighted parts:
+#   predominance — is it present, and frequent, across all companies' documents
+#   generality   — do companies define it the same way as one another
+#   consistency  — does it recur steadily inside each company's own corpus
+LONE_COMPANY_GENERALITY = 0.20      # one company shows no cross-company agreement
+CONSISTENT_THRESHOLD = 0.45
+MIN_DOCUMENTS_FOR_CONSISTENT = 2
 
 
 def clean(value):
@@ -179,53 +180,75 @@ def document_year(row):
     return ""
 
 
-def score_constancy(units, company_documents, company_years):
-    """Score how consistently each company states one item over its documents.
+def score_consistency(units, company_documents, company_years, total_companies, total_documents):
+    """Score how consistently the field states one virtue or risk.
 
-    `units` maps (company, key) to a list of (document title, year, definition).
-    Three things move the score: whether the definitions say the same thing from
-    one document to the next, how much of the company's corpus mentions the item,
-    and how much of the company's timeline it spans. The result is then scaled by
-    a confidence factor, so an item seen once or twice stays provisional however
-    closely its few definitions happen to match.
+    `units` maps a key to a list of (company, document id, year, definition).
+    A virtue or risk is consistent when it is present and frequent across the
+    companies' documents (predominance), when companies define it in the same
+    terms as one another (generality), and when it recurs steadily inside each
+    company's own corpus (consistency). The three are weighted equally.
     """
     scored = {}
-    for (company, key), occurrences in units.items():
-        documents = {}
-        for title, year, definition in occurrences:
-            documents.setdefault(title, (year, definition))
-        count = len(documents)
-        years = {year for year, _ in documents.values() if year}
-        definitions = [tokens(definition) for _, definition in documents.values() if clean(definition)]
+    for key, occurrences in units.items():
+        by_company = defaultdict(lambda: {"documents": {}, "definition": Counter()})
+        documents = set()
+        for company, document_id, year, definition in occurrences:
+            entry = by_company[company]
+            entry["documents"].setdefault(document_id, year)
+            documents.add(document_id)
+            if clean(definition):
+                entry["definition"].update(tokens(definition))
+        companies = list(by_company)
 
-        if len(definitions) >= 2:
-            pairs = [cosine(definitions[i], definitions[j])
-                     for i in range(len(definitions)) for j in range(i + 1, len(definitions))]
-            similarity = sum(pairs) / len(pairs)
+        # 1. Predominance — how widely it is held, and how often it is stated.
+        predominance = (0.5 * (len(companies) / max(1, total_companies))
+                        + 0.5 * min(1.0, len(documents) / max(1.0, 0.20 * total_documents)))
+
+        # 2. Generality — whether companies mean the same thing by it. Each
+        #    company's definitions are pooled, then compared with every other's.
+        centroids = [by_company[company]["definition"] for company in companies
+                     if by_company[company]["definition"]]
+        if len(centroids) >= 2:
+            pairs = [cosine(centroids[i], centroids[j])
+                     for i in range(len(centroids)) for j in range(i + 1, len(centroids))]
+            generality = sum(pairs) / len(pairs)
         else:
-            similarity = LONE_DEFINITION_SIMILARITY
+            generality = LONE_COMPANY_GENERALITY
 
-        # Full marks for appearing in a quarter of the company's documents, but
-        # never on fewer than three, so small corpora cannot top the ranking.
-        target = max(3.0, 0.25 * len(company_documents.get(company, ())))
-        recurrence = min(1.0, count / target)
+        # 3. Consistency — steadiness within each company, averaged over them.
+        per_company = {}
+        steadiness = []
+        for company in companies:
+            found = by_company[company]["documents"]
+            target = max(3.0, 0.25 * len(company_documents.get(company, ())))
+            recurrence = min(1.0, len(found) / target)
+            years = {year for year in found.values() if year}
+            active = company_years.get(company, set())
+            persistence = min(1.0, len(years) / len(active)) if len(active) > 1 else 0.5
+            value = 0.55 * recurrence + 0.45 * persistence
+            steadiness.append(value)
+            per_company[company] = {
+                "documents": len(found),
+                "corpus": len(company_documents.get(company, ())),
+                "recurrence": round(recurrence, 4),
+                "persistence": round(persistence, 4),
+                "score": round(value, 4),
+                "years": sorted(years),
+            }
+        consistency = sum(steadiness) / len(steadiness) if steadiness else 0.0
 
-        active_years = company_years.get(company, set())
-        persistence = min(1.0, len(years) / len(active_years)) if len(active_years) > 1 else 0.5
-
-        base = W_SIMILARITY * similarity + W_RECURRENCE * recurrence + W_PERSISTENCE * persistence
-        confidence = min(1.0, math.log(1 + count) / math.log(1 + 4))
-        score = max(0.0, min(1.0, base * confidence))
-
-        scored[(company, key)] = {
+        score = max(0.0, min(1.0, (predominance + generality + consistency) / 3))
+        scored[key] = {
             "score": round(score, 4),
-            "label": ("Constant" if count >= MIN_DOCUMENTS_FOR_CONSTANT and score >= CONSTANT_THRESHOLD
-                      else "Variable"),
-            "similarity": round(similarity, 4),
-            "recurrence": round(recurrence, 4),
-            "persistence": round(persistence, 4),
-            "documents": count,
-            "years": sorted(years),
+            "label": ("Consistent" if len(documents) >= MIN_DOCUMENTS_FOR_CONSISTENT
+                      and score >= CONSISTENT_THRESHOLD else "Inconsistent"),
+            "predominance": round(predominance, 4),
+            "generality": round(generality, 4),
+            "consistency": round(consistency, 4),
+            "companies": len(companies),
+            "documents": len(documents),
+            "byCompany": per_company,
         }
     return scored
 
@@ -297,20 +320,29 @@ def build(csv_path, write_csv=False):
 
     item_units = defaultdict(list)
     category_units = defaultdict(list)
+    thematic_units = defaultdict(list)
     for row, company, record, category, year in kept:
         item = clean(row.get("risk_virtue_item_harmonized")) or clean(row.get("risk_conduct_item"))
         if not item:
             continue
         item_key = normalise_item(item)
+        kind = item_kind.get(item_key, "risk")
         definition = clean(row.get("risk_conduct_definition"))
-        occurrence = (record["id"], int(year) if year else 0, definition)
-        item_units[(company, item_key)].append(occurrence)
+        occurrence = (company, record["id"], int(year) if year else 0, definition)
+        item_units[item_key].append(occurrence)
         # A category can host both a virtue and a risk side — "Safety" is stated
         # as a virtue and as a risk — so each side is scored on its own rows.
-        category_units[(company, f"{item_kind.get(item_key, 'risk')}::{category}")].append(occurrence)
+        category_units[f"{kind}::{category}"].append(occurrence)
+        thematic_units[f"{kind}::{clean(row.get('risk_virtue_thematic_category')) or 'Other'}"].append(occurrence)
 
-    item_constancy = score_constancy(item_units, company_documents, company_years)
-    category_constancy = score_constancy(category_units, company_documents, company_years)
+    total_companies = len(COMPANIES)
+    total_documents = len(documents)
+    item_consistency = score_consistency(item_units, company_documents, company_years,
+                                         total_companies, total_documents)
+    category_consistency = score_consistency(category_units, company_documents, company_years,
+                                             total_companies, total_documents)
+    thematic_consistency = score_consistency(thematic_units, company_documents, company_years,
+                                             total_companies, total_documents)
 
     virtues, risks, training, benchmarking = [], [], [], []
     display_name = defaultdict(Counter)
@@ -370,28 +402,25 @@ def build(csv_path, write_csv=False):
 
         # Flows keep the CSV's per-row weight, which already divides a source
         # record equally across the training/benchmark paths it spans.
-        flow_key = (company, thematic,
+        flow_key = (company, "Virtue" if kind == "virtue" else "Risk", thematic,
                     clean(row.get("risk_virtue_training_category")) or "Not reported",
                     clean(row.get("risk_virtue_benchmark_category")) or "Not reported", category)
         flow_totals[flow_key] += weight
 
     flows = [{
         "company": company,
+        "kind": kind_label,
         "category": category,
         "thematic": thematic,
         "training_category": training_category,
         "benchmark_category": benchmark_category,
         "value": round(value, 5),
-    } for (company, thematic, training_category, benchmark_category, category), value
+    } for (company, kind_label, thematic, training_category, benchmark_category, category), value
         in flow_totals.items()]
 
     # Show the spelling the company used most often for each merged item.
     for entry in virtues + risks + training + benchmarking:
         entry["item"] = display_name[entry["item_key"]].most_common(1)[0][0]
-
-    def pack(scored):
-        return {f"{company}::{key}": {k: v for k, v in values.items() if k != "years"}
-                for (company, key), values in scored.items()}
 
     document_list = []
     for record in documents.values():
@@ -408,15 +437,15 @@ def build(csv_path, write_csv=False):
         "training": training,
         "benchmarking": benchmarking,
         "flows": flows,
-        "constancy": pack(item_constancy),
-        "categoryConstancy": pack(category_constancy),
+        "consistency": item_consistency,
+        "categoryConsistency": category_consistency,
+        "thematicConsistency": thematic_consistency,
         "meta": {
             "source": Path(csv_path).name,
             "rows_in_csv": len(rows),
             "rows_used": len(kept),
-            "constant_threshold": CONSTANT_THRESHOLD,
-            "weights": {"similarity": W_SIMILARITY, "recurrence": W_RECURRENCE,
-                        "persistence": W_PERSISTENCE},
+            "consistent_threshold": CONSISTENT_THRESHOLD,
+            "components": ["predominance", "generality", "consistency"],
         },
     }
 
@@ -424,52 +453,65 @@ def build(csv_path, write_csv=False):
     (HERE / "data.js").write_text("window.VALUE_MAP_DATA=" + json.dumps(data, ensure_ascii=False) + ";",
                                   encoding="utf-8")
 
-    with open(HERE / "constancy.csv", "w", newline="", encoding="utf-8") as handle:
+    with open(HERE / "consistency.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["unit", "company", "name", "kind", "risk_or_virtue_constancy",
-                         "risk_or_virtue_constancy_score", "risk_virtue_definition_similarity",
-                         "risk_virtue_document_recurrence", "risk_virtue_temporal_persistence",
-                         "distinct_documents", "years"])
-        for (company, key), values in sorted(item_constancy.items()):
-            writer.writerow(["item", company, display_name[key].most_common(1)[0][0] if display_name[key] else key,
-                             item_kind.get(key, "risk"), values["label"], values["score"],
-                             values["similarity"], values["recurrence"], values["persistence"],
-                             values["documents"], " ".join(str(y) for y in values["years"])])
-        for (company, key), values in sorted(category_constancy.items()):
+        writer.writerow(["unit", "name", "kind", "risk_or_virtue_consistency",
+                         "risk_or_virtue_consistency_score", "risk_virtue_predominance",
+                         "risk_virtue_generality", "risk_virtue_company_consistency",
+                         "companies", "distinct_documents"])
+        for key, values in sorted(item_consistency.items()):
+            name = display_name[key].most_common(1)[0][0] if display_name.get(key) else key
+            writer.writerow(["item", name, item_kind.get(key, "risk"), values["label"], values["score"],
+                             values["predominance"], values["generality"], values["consistency"],
+                             values["companies"], values["documents"]])
+        for key, values in sorted(category_consistency.items()):
             kind, _, category = key.partition("::")
-            writer.writerow(["category", company, category, kind, values["label"], values["score"],
-                             values["similarity"], values["recurrence"], values["persistence"],
-                             values["documents"], " ".join(str(y) for y in values["years"])])
+            writer.writerow(["category", category, kind, values["label"], values["score"],
+                             values["predominance"], values["generality"], values["consistency"],
+                             values["companies"], values["documents"]])
+        for key, values in sorted(thematic_consistency.items()):
+            kind, _, thematic = key.partition("::")
+            writer.writerow(["thematic", thematic, kind, values["label"], values["score"],
+                             values["predominance"], values["generality"], values["consistency"],
+                             values["companies"], values["documents"]])
 
     if write_csv:
-        target = Path(csv_path).with_name(Path(csv_path).stem + " (constancy recomputed).csv")
+        target = Path(csv_path).with_name(Path(csv_path).stem + " (consistency recomputed).csv")
         fieldnames = list(rows[0].keys()) if rows else []
+        for column in ("risk_virtue_predominance", "risk_virtue_generality",
+                       "risk_virtue_company_consistency"):
+            if column not in fieldnames:
+                fieldnames.append(column)
         with open(target, "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             for row in rows:
-                company = normalise_company(row.get("company"), row.get("pub_author"))
                 item = clean(row.get("risk_virtue_item_harmonized")) or clean(row.get("risk_conduct_item"))
-                values = item_constancy.get((company, normalise_item(item))) if company and item else None
+                values = item_consistency.get(normalise_item(item)) if item else None
                 if values:
                     row["risk_or_virtue_constancy"] = values["label"]
                     row["risk_or_virtue_constancy_score"] = values["score"]
-                    row["risk_virtue_definition_similarity"] = values["similarity"]
-                    row["risk_virtue_document_recurrence"] = values["recurrence"]
-                    row["risk_virtue_temporal_persistence"] = values["persistence"]
+                    # The three original component columns now carry the three
+                    # components of consistency, in the same order.
+                    row["risk_virtue_definition_similarity"] = values["generality"]
+                    row["risk_virtue_document_recurrence"] = values["predominance"]
+                    row["risk_virtue_temporal_persistence"] = values["consistency"]
+                    row["risk_virtue_predominance"] = values["predominance"]
+                    row["risk_virtue_generality"] = values["generality"]
+                    row["risk_virtue_company_consistency"] = values["consistency"]
                 writer.writerow(row)
         print(f"wrote            {target}")
 
-    constant_items = sum(1 for v in item_constancy.values() if v["label"] == "Constant")
-    constant_categories = sum(1 for v in category_constancy.values() if v["label"] == "Constant")
+    consistent_items = sum(1 for v in item_consistency.values() if v["label"] == "Consistent")
+    consistent_categories = sum(1 for v in category_consistency.values() if v["label"] == "Consistent")
     print(f"documents        {len(document_list)}")
     print(f"virtues          {len(virtues)}   ({len({(e['company'], e['item_key']) for e in virtues})} chips)")
     print(f"risks            {len(risks)}  ({len({(e['company'], e['item_key']) for e in risks})} chips)")
     print(f"training rows    {len(training)}")
     print(f"benchmark rows   {len(benchmarking)}")
     print(f"flows            {len(flows)}  (total weight {sum(f['value'] for f in flows):.1f})")
-    print(f"item constancy   {constant_items} constant of {len(item_constancy)}")
-    print(f"category const.  {constant_categories} constant of {len(category_constancy)}")
+    print(f"item consistency {consistent_items} consistent of {len(item_consistency)}")
+    print(f"category consist.{consistent_categories} consistent of {len(category_consistency)}")
     print(f"rows used        {len(kept)} of {len(rows)}")
     for reason, count in dropped.most_common():
         print(f"  dropped: {reason}: {count}")
