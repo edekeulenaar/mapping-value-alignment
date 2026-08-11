@@ -11,11 +11,12 @@
   <aside class="sidebar sidebar-left">
     <header class="brand">
       <h1>Mapping value<br>alignment</h1>
-      <p class="brand-sub">Values, risks, training and evaluation across model-card documentation.</p>
+      <p class="brand-sub">How eight AI companies define virtues and risks, train for them, and test whether the training held.</p>
     </header>
     <nav class="side-nav" aria-label="Sections">
-      <a href="#stack-overview">Alignment stack</a>
+      <a href="#stack-overview">The alignment stack</a>
       <a href="#introduction">Introduction</a>
+      <a href="#documents-argument">Alignment documents</a>
       <a href="#method">Method</a>
       <a href="#findings">Findings</a>
       <ul class="sub-nav">
@@ -34,21 +35,38 @@
     <div class="side-block">
       <h4>View</h4>
       <label class="side-toggle"><input type="checkbox" id="compact-commitments"><span>Compact virtue/risk chips</span></label>
-      <label class="side-toggle"><input type="checkbox" id="show-definitions"><span>Show definitions in cards</span></label>
-      <p class="side-hint">Hover any value, risk or method card to read the recorded definition.</p>
+      <label class="side-toggle"><input type="checkbox" id="show-definitions"><span>Show definitions in chips</span></label>
+      <p class="side-hint">Hover any chip, marker or circle to read the recorded definitions and scores.</p>
     </div>
     <div class="side-block">
       <h4>Sort virtues &amp; risks</h4>
-      <select id="commitment-sort" class="side-select">
-        <option value="constancy">Constancy</option>
+      <select id="commitment-sort" class="side-select" aria-label="Sort virtues and risks">
+        <option value="constancy">Constancy · highest first</option>
         <option value="name">Name A–Z</option>
-        <option value="date-desc">Document date · newest</option>
-        <option value="date-asc">Document date · oldest</option>
+        <option value="date-desc">Document date · newest first</option>
+        <option value="date-asc">Document date · oldest first</option>
+      </select>
+    </div>
+    <div class="side-block">
+      <h4>Sort documents</h4>
+      <select id="document-sort" class="side-select" aria-label="Sort documents">
+        <option value="date-desc">Date · newest first</option>
+        <option value="date-asc">Date · oldest first</option>
+        <option value="name">Title A–Z</option>
+        <option value="type">Document type</option>
+      </select>
+    </div>
+    <div class="side-block">
+      <h4>Sort association charts</h4>
+      <select id="association-sort" class="side-select" aria-label="Sort association charts">
+        <option value="count">Weighted frequency</option>
+        <option value="name">Name A–Z</option>
+        <option value="constancy">Mean constancy</option>
       </select>
     </div>
     <div class="side-block">
       <h4>Risk / virtue category</h4>
-      <p class="side-hint category-hint">Select one or more categories to filter every figure.</p>
+      <p class="side-hint category-hint">Select one or more categories to filter every figure on the page.</p>
       <input type="search" id="category-search" class="side-search-input" placeholder="Find a category…">
       <div id="legend" class="legend"></div>
       <button class="reset" id="reset-categories" type="button">Show all categories</button>
@@ -64,68 +82,83 @@
   <main>
     <header class="masthead">
       <h1 class="masthead-title">Mapping value alignment</h1>
-      <p class="byline">A distant reading of how eight AI companies articulate desirable conduct, potential harms, training interventions, and evaluations in model-card documentation.</p>
+      <p class="byline">A distant reading of how eight AI companies define desirable conduct and potential harms, translate those definitions into training, and make them measurable through benchmarks.</p>
     </header>
 
     <section id="stack-overview" class="prose stack-overview-section">
-      <h2>The AI alignment stack</h2>
-      <p class="lede">Alignment moves downward through a documentary and technical stack: public rules frame corporate commitments; those commitments define desirable conduct and risks; training operationalises them; and benchmarking makes them measurable.</p>
-      <div class="stack-overview-wrap"><svg id="stack-overview-svg" role="img" aria-label="The AI alignment stack, from legislation and policy through definition, training and benchmarking"></svg></div>
+      <h2>The alignment stack</h2>
+      <p class="lede">Value alignment asks how guiding principles — fairness, accountability, transparency, safety — are embedded into technical systems. We treat it as the process by which AI companies decide, together with the law and with partnerships among states, alignment research organisations and publics, how their models should behave in relation to what “humans value”.</p>
+      <p>Research has tended to take up one part of that process at a time: red teaming, the drafting of alignment documents, the content of model cards, the actors named in them, or ethnographies of data work and training. These interventions matter more when they are joined back together, because alignment is indivisible — it runs from data production through policy documents to training, benchmarking and other forms of evaluation. We call the result a stack, in the sense that its components depend on one another.</p>
+      <div class="stack-overview-wrap"><svg id="stack-overview-svg" role="img" aria-label="The AI alignment stack: high-level legislation and policies, definition, training, and benchmarking"></svg></div>
+      <p class="meta">Levels 2 to 4 are the ones this map reads empirically. Level 1 frames them but is not coded here.</p>
     </section>
 
     <section id="introduction" class="prose">
       <h2>Introduction</h2>
-      <p class="lede">Value alignment is not a single technical intervention. It is a chain of choices through which companies define desirable conduct and potential harms, train models to respond to them, and evaluate whether those responses hold. This map follows that chain across model cards and related alignment documents.</p>
-      <p>Rather than treating safety policies, system cards, training methods and evaluations as separate artefacts, we trace their connections. A stated value or risk becomes operational when it is translated into a training intervention and made legible through a test. The map therefore treats documentation as evidence of what companies disclose about this chain—not as a complete account of how a model is actually trained or governed.</p>
+      <p class="lede">Alignment has become the main site of intervention for determining the norms and values by which AI works. As AI conditions and organises how information is consumed, alignment gives a normative orientation to how that information is generated and ordered — a pressing matter across domestic, geopolitical and public arenas alike.</p>
+      <p>The components of the stack are three. The <em>definition</em> of <em>risks</em>, meaning what models should be prevented from reproducing — aiding criminality, breaching cybersecurity, and so on — and of <em>virtues</em>, meaning the conduct by which models should behave: helpfulness, faithfulness, a warm and friendly personality. The <em>training</em> of those risks and virtues through supervised learning, reward-based learning, adversarial learning, hard constraints. And the <em>benchmarking</em> of that training, where models are tested against criteria produced by companies or third parties, scored on how rigorously they reproduce a particular definition of a value or risk.</p>
+      <p>Different kinds of training suit different kinds of values. Hard constraints matter for potentially criminal prompts; adversarial learning creates the frictions that a virtue like political diversity may require. What this map follows, then, is the <em>operationalisation</em> of a risk or virtue through the stack — how a definition trickles down into training and into evaluation.</p>
+    </section>
+
+    <section id="documents-argument" class="prose">
+      <h2>The documents of alignment</h2>
+      <p>For those who have studied content moderation, the familiar datapoint is the policy document, which stipulates what a service allows and does not allow. Alignment documents are different in kind. Companies keep policy documents of that sort, but they also produce more <em>aspirational</em> texts defining how models should in theory behave towards potential phenomena. This is why both we and the companies use the word “risk”: it names a potentiality that models are trained to pre-empt across a myriad of possible uses. The same holds for a virtue — a way that models <em>should</em> behave across a diversity of scenarios, to the point that models become norm sponsors, reproducing norms onto the world by steering users towards virtuous choices.</p>
+      <p><strong>Principles.</strong> First there are, for lack of a better word, canonical principles in which companies scope their alignment. As platform policies draw the finite lines of what a service can do, these chart the broad lines of an alignment project: they declare a philosophy, deciding what is good and bad and why. The documents differ in flavour by company. xAI makes clear that Grok should behave in ways antithetical to other models on the market — “truth-speaking” against values the company deems too liberal. One might read this as performative work addressed to governmental stakeholders. But it is not only that: in practical terms it is the root repository of norms, definitions, scenarios and metrics by which specific virtues and risks are trained, and the place where companies state their choices amid continuing debate about what AI is and how it will transform employment, sustainability and autonomy. There is a clear if understated way in which companies have taken up the craft of traditional political actors.</p>
+      <p><strong>Announcements, initiatives and grants.</strong> Then there are documents announcing projects, points of interest, partnerships and other developments not always reflected in model cards or principles. Though they can look like PR exercises, they are useful datapoints in ongoing and often shifting alignment projects — efforts to afford deliberative or public input into AI constitutions, for instance, such as Anthropic’s Collective Constitutional AI and OpenAI’s equivalent.</p>
+      <p><strong>Model cards.</strong> Finally there are model cards: relatively standardised reports of how a model was trained. They usually state a training objective, including the risk-mitigation strategies and virtues a company wants embedded; the training process, meaning what training was chosen, with whom and how; and the benchmarks used to verify its effectiveness. Since 2019 they have become industry practice, an effort to render machine learning more transparent in response to critiques of opaque data collection and training. They are not all exhaustive, but they state the fundamental components of the training process more fully than documents aimed at lay audiences.</p>
+      <p><strong>Repositories.</strong> We should not forget the world of repositories, where code contains its own forms of decision-making. For this reading we do not take them into account, though they could be combined with all of the documents above.</p>
     </section>
 
     <section id="method" class="prose">
       <h2>Method</h2>
-      <p>The corpus contains model cards, system cards, safety frameworks, policy pages and technical reports from OpenAI, Google, Anthropic, xAI, Meta, DeepSeek, Mistral AI and Microsoft. Each source record links a value or risk to its definition, reported training method and reported benchmark where these are disclosed.</p>
-      <p>Constancy is measured within each company and virtue/risk item. The score combines linguistic similarity among its definitions, recurrence across distinct documents, and persistence over the company’s documentary timeline. A recently introduced or rarely mentioned item is therefore treated as variable even when its few definitions happen to use similar language.</p>
+      <p>We manually collected 183 documents from eight companies — American, European and Chinese — as a sample. Companies differ in how much alignment documentation they publish; Mistral, ironically, publishes almost none. We then performed a distant reading of every document using three readers: two LLMs, one frontier and one baseline, and ourselves. We call it distant reading because it is a collective reading of datapoints defined inductively. Having read a pair of documents, we determined what to collect systematically: the risk or virtue being trained, where available; the way it was trained; how it was benchmarked; and which actors were involved at each step. This was done manually for five documents per company, then given as an example to the two models. Where the models agreed on a passage, the passage was kept; where they disagreed, we made the call by verifying the document by hand.</p>
+      <p>Extraction proceeded in two steps. First the model collected each document’s own expressions of ideal conduct, risks, training or mitigation methods, benchmarks and participating actors. Second, those expressions were categorised manually into controlled vocabularies. Conduct categories include honesty, helpfulness, harmlessness, anti-discrimination, political neutrality, factuality, reasoning, safety and knowledge; risk categories include CBRN, cybersecurity, bias, sycophancy, reward hacking, persuasion, misalignment, hallucinations, child safety and jailbreaking, among others. Where no category fits, the item remains under “Other”.</p>
+      <p><strong>Constancy.</strong> Constancy is not overall frequency across companies. It is a company-level measure of how consistently one company defines a given virtue or risk over time, computed for each pair of company and harmonised item. It combines the linguistic similarity of the definitions attached to that item within that company (50%), the number of distinct documents that mention it (30%), and its persistence across the company’s documentary timeline (20%), with a penalty for items introduced recently in two or fewer documents. An item counts as <em>constant</em> when it appears in at least two distinct documents and scores at least 0.52; everything else is variable. Since most items are named in a single document, variability is the norm — which is itself the finding.</p>
     </section>
 
     <section id="findings">
       <h2>Findings</h2>
       <section id="documents" class="grid-block">
-        <div class="block-head"><h3>Documents</h3><p class="block-sub">Grouped as principles, model cards, announcements / grants / initiatives, and policies.</p></div>
-        <p class="block-caption">One marker represents one document. Document title, date, type and model are supplied in the hover label.</p>
+        <div class="block-head"><h3>Documents</h3><p class="block-sub">The corpus by genre: principles, model cards, announcements / grants / initiatives, and policies.</p></div>
+        <p class="block-caption">One marker is one document, deliberately left uncoloured. Hover for the title, year, type, model and company. <span id="document-count" class="figure-count"></span></p>
         <div id="document-grid" class="row-grid"></div>
       </section>
 
       <section id="virtues" class="grid-block">
-        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Company-level constancy combines definition similarity, document recurrence and temporal persistence.</p></div>
+        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Hard virtues concern safety and legal compliance; softer ones — political neutrality, truth-speaking — remain contingent on public debate and company discretion.</p></div>
+        <p class="block-caption">One chip is one harmonised virtue within one company, merged across every document that names it, coloured by risk/virtue category and badged with its constancy score. <span id="virtue-count" class="figure-count"></span></p>
         <div id="virtue-grid" class="row-grid"></div>
       </section>
 
       <section id="risks" class="grid-block">
-        <div class="block-head"><h3>Risks</h3><p class="block-sub">Company-level constancy combines definition similarity, document recurrence and temporal persistence.</p></div>
+        <div class="block-head"><h3>Risks</h3><p class="block-sub">Likewise risks: some hard, such as cybersecurity, and some contingent, such as political bias.</p></div>
+        <p class="block-caption">One chip is one harmonised risk within one company. The hover lists every source occurrence with its document title, date and recorded definition. <span id="risk-count" class="figure-count"></span></p>
         <div id="risk-grid" class="row-grid"></div>
       </section>
 
       <section id="training" class="grid-block">
-        <div class="block-head"><h3>Training associations</h3><p class="block-sub">Which training approaches are most often associated with each kind of virtue or risk?</p></div>
-        <p class="block-caption">Circle size represents weighted source records. “Not reported” and associations with fewer than three weighted records are omitted; at most the twenty most prevalent virtue/risk categories are shown.</p>
+        <div class="block-head"><h3>Training associations</h3><p class="block-sub">Which kinds of training are associated with which kinds of virtues and risks?</p></div>
+        <p class="block-caption">Circle size represents weighted source records; colour follows the risk/virtue category. “Not reported” and associations below three weighted records are omitted, and at most the twenty leading categories are drawn.</p>
         <div class="association-wrap"><svg id="training-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and training categories"></svg></div>
       </section>
 
       <section id="benchmarking" class="grid-block">
-        <div class="block-head"><h3>Benchmark associations</h3><p class="block-sub">Which evaluation techniques are most often used for each kind of virtue or risk?</p></div>
-        <p class="block-caption">Circle size represents weighted source records. “Not reported” and associations with fewer than three weighted records are omitted; at most the twenty most prevalent virtue/risk categories are shown.</p>
+        <div class="block-head"><h3>Benchmark associations</h3><p class="block-sub">And which evaluations are used to verify that the training held?</p></div>
+        <p class="block-caption">Circle size represents weighted source records. Benchmark criteria tend to reinforce a particular definition of a value or risk and score how rigorously a model reproduces it.</p>
         <div class="association-wrap"><svg id="benchmark-association" class="association-chart" role="img" aria-label="Associations between risk and virtue categories and benchmark techniques"></svg></div>
       </section>
     </section>
 
     <section id="flows" class="prose flow-section">
       <h2>From company to evaluation</h2>
-      <p>The rankflow follows the alignment stack from company, to thematic category, to training category, to benchmark category. Flow widths preserve source-record weights. Colours follow each flow’s source at a given stage, in the style of a RAWGraphs alluvial diagram. Hover a line to isolate it and highlight both endpoints.</p>
+      <p>The rankflow follows the stack in full: company, thematic category, training category, benchmark category. Flow widths preserve weighted source records, where a record spanning several training or benchmarking categories has its weight divided between those paths, so that companies with more documents are not over-represented by duplication alone. Colours follow each flow’s source at a given stage, in the manner of a RAWGraphs alluvial. Hover a line to isolate it and highlight both endpoints; hover a node to isolate everything passing through it.</p>
       <div class="flow-wrap"><svg id="alluvial" role="img" aria-label="Alluvial diagram of company, thematic category, training category and benchmark category"></svg></div>
-      <p class="meta">Undisclosed training and benchmarking records are omitted from this global view to keep the disclosed associations legible.</p>
+      <p class="meta">Undisclosed training and benchmarking are omitted from this view to keep the disclosed associations legible.</p>
     </section>
 
     <section id="limitations" class="prose">
       <h2>Limitations</h2>
-      <p>The map captures published descriptions, which vary substantially in scope, detail and genre. A company with many documents will naturally produce more source records; the alluvial preserves this empirical distribution while the matrices make the documentary basis visible. Absence from a matrix means absence from the collected disclosure, not necessarily absence from the model-development process.</p>
+      <p>The map captures published descriptions, which vary widely in scope, detail and genre. A company that publishes more will produce more source records; the weighting keeps duplicated records from inflating that further, but it cannot manufacture disclosure where none exists. Absence from a matrix therefore means absence from the collected documentation, not necessarily absence from the model-development process. Repositories, where a good deal of decision-making is encoded, are left out of this reading entirely.</p>
     </section>
   </main>
 
