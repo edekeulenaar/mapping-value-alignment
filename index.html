@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mapping value alignment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23faf7f0'/%3E%3Crect x='2' y='3' width='12' height='3' rx='1' fill='%231c1a18'/%3E%3Crect x='2' y='7.5' width='12' height='3' rx='1' fill='%236f6a62'/%3E%3Crect x='2' y='12' width='12' height='2' rx='1' fill='%23b3a999'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="page.css">
 </head>
@@ -37,15 +38,6 @@
       <label class="side-toggle"><input type="checkbox" id="compact-commitments"><span>Compact virtue/risk chips</span></label>
       <label class="side-toggle"><input type="checkbox" id="show-definitions"><span>Show definitions in chips</span></label>
       <p class="side-hint">Hover any chip, marker or circle to read the recorded definitions and scores.</p>
-    </div>
-    <div class="side-block">
-      <h4>Sort virtues &amp; risks</h4>
-      <select id="commitment-sort" class="side-select" aria-label="Sort virtues and risks">
-        <option value="constancy">Constancy · highest first</option>
-        <option value="name">Name A–Z</option>
-        <option value="date-desc">Document date · newest first</option>
-        <option value="date-asc">Document date · oldest first</option>
-      </select>
     </div>
     <div class="side-block">
       <h4>Sort documents</h4>
@@ -113,7 +105,8 @@
       <h2>Method</h2>
       <p>We manually collected 183 documents from eight companies — American, European and Chinese — as a sample. Companies differ in how much alignment documentation they publish; Mistral, ironically, publishes almost none. We then performed a distant reading of every document using three readers: two LLMs, one frontier and one baseline, and ourselves. We call it distant reading because it is a collective reading of datapoints defined inductively. Having read a pair of documents, we determined what to collect systematically: the risk or virtue being trained, where available; the way it was trained; how it was benchmarked; and which actors were involved at each step. This was done manually for five documents per company, then given as an example to the two models. Where the models agreed on a passage, the passage was kept; where they disagreed, we made the call by verifying the document by hand.</p>
       <p>Extraction proceeded in two steps. First the model collected each document’s own expressions of ideal conduct, risks, training or mitigation methods, benchmarks and participating actors. Second, those expressions were categorised manually into controlled vocabularies. Conduct categories include honesty, helpfulness, harmlessness, anti-discrimination, political neutrality, factuality, reasoning, safety and knowledge; risk categories include CBRN, cybersecurity, bias, sycophancy, reward hacking, persuasion, misalignment, hallucinations, child safety and jailbreaking, among others. Where no category fits, the item remains under “Other”.</p>
-      <p><strong>Constancy.</strong> Constancy is not overall frequency across companies. It is a company-level measure of how consistently one company defines a given virtue or risk over time, computed for each pair of company and harmonised item. It combines the linguistic similarity of the definitions attached to that item within that company (50%), the number of distinct documents that mention it (30%), and its persistence across the company’s documentary timeline (20%), with a penalty for items introduced recently in two or fewer documents. An item counts as <em>constant</em> when it appears in at least two distinct documents and scores at least 0.52; everything else is variable. Since most items are named in a single document, variability is the norm — which is itself the finding.</p>
+      <p><strong>Constancy.</strong> Constancy is not overall frequency across companies. It is a company-level measure of how consistently one company states a given virtue or risk over time: how much its definitions change from document to document, and how steadily the item appears in its corpus at all. Three things enter the score — the linguistic similarity between the definitions a company attaches to the item (45%), how much of that company’s corpus mentions it (35%), and how much of the company’s documentary timeline it spans (20%). The result is scaled by a confidence factor, so an item stated once or twice stays provisional however closely its few definitions happen to match. A unit counts as <em>constant</em> when it appears in at least two distinct documents and scores at least 0.45.</p>
+      <p>The score is computed at two levels, because the two answer different questions. Each <em>category</em> — CBRN, child safety, political neutrality — is scored per company, and this is what ranks the rows: it is the level at which a company can be said to hold a settled position. Each <em>item</em> is scored separately and badged on its chip. Item names are coded finely, so one category may hold dozens of near-synonyms; near-duplicate spellings are merged, but a specific phrasing used once remains variable even where the concept behind it is constant. Read together, the two levels show a company returning to a concept steadily while naming it differently each time.</p>
     </section>
 
     <section id="findings">
@@ -125,14 +118,36 @@
       </section>
 
       <section id="virtues" class="grid-block">
-        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Hard virtues concern safety and legal compliance; softer ones — political neutrality, truth-speaking — remain contingent on public debate and company discretion.</p></div>
-        <p class="block-caption">One chip is one harmonised virtue within one company, merged across every document that names it, coloured by risk/virtue category and badged with its constancy score. <span id="virtue-count" class="figure-count"></span></p>
+        <div class="block-head">
+          <h3>Virtues</h3>
+          <p class="block-sub">Hard virtues concern safety and legal compliance; softer ones — political neutrality, truth-speaking — remain contingent on public debate and company discretion.</p>
+          <label class="block-sort">Rank by
+            <select id="virtue-sort" class="side-select" aria-label="Sort virtues">
+              <option value="constancy">Constancy · highest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="date-desc">Document date · newest first</option>
+              <option value="date-asc">Document date · oldest first</option>
+            </select>
+          </label>
+        </div>
+        <p class="block-caption">One chip is one virtue within one company, merged across every document that names it, coloured by risk/virtue category and badged with its constancy score. <span id="virtue-count" class="figure-count"></span></p>
         <div id="virtue-grid" class="row-grid"></div>
       </section>
 
       <section id="risks" class="grid-block">
-        <div class="block-head"><h3>Risks</h3><p class="block-sub">Likewise risks: some hard, such as cybersecurity, and some contingent, such as political bias.</p></div>
-        <p class="block-caption">One chip is one harmonised risk within one company. The hover lists every source occurrence with its document title, date and recorded definition. <span id="risk-count" class="figure-count"></span></p>
+        <div class="block-head">
+          <h3>Risks</h3>
+          <p class="block-sub">Likewise risks: some hard, such as cybersecurity, and some contingent, such as political bias.</p>
+          <label class="block-sort">Rank by
+            <select id="risk-sort" class="side-select" aria-label="Sort risks">
+              <option value="constancy">Constancy · highest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="date-desc">Document date · newest first</option>
+              <option value="date-asc">Document date · oldest first</option>
+            </select>
+          </label>
+        </div>
+        <p class="block-caption">One chip is one risk within one company. The hover lists every source occurrence with its document title, date and recorded definition. <span id="risk-count" class="figure-count"></span></p>
         <div id="risk-grid" class="row-grid"></div>
       </section>
 

@@ -3,7 +3,7 @@ const state = {
   companies: new Set(),
   categories: new Set(),
   categorySearch: "",
-  sort: "constancy",
+  sort: { virtues: "constancy", risks: "constancy" },
   documentSort: "date-desc",
   associationSort: "count",
 };
@@ -53,9 +53,16 @@ function buildPalette() {
 }
 const color = category => categoryColor.get(category) || "hsl(40 8% 82%)";
 
-function metricFor(company, item) {
-  return state.data.constancy[`${company}::${clean(item).toLowerCase()}`]
-    || { score: 0, label: "Variable", similarity: 0, recurrence: 0, persistence: 0 };
+const EMPTY_METRIC = { score: 0, label: "Variable", similarity: 0, recurrence: 0, persistence: 0, documents: 0 };
+
+/* Constancy is measured at two levels. An item chip carries how consistently a
+   company states that particular item; the category row carries how consistently
+   it states the concept, which is the level most claims are made at. */
+function metricFor(company, itemKey) {
+  return state.data.constancy[`${company}::${itemKey}`] || EMPTY_METRIC;
+}
+function categoryMetricFor(company, category, kind) {
+  return state.data.categoryConstancy[`${company}::${kind}::${category}`] || EMPTY_METRIC;
 }
 
 function moveTip(event) {
@@ -135,18 +142,18 @@ function renderDocuments() {
 
 /* -------------------------------------------------------- virtues and risks */
 
-function mergeCommitments(rows) {
+function mergeCommitments(rows, kind) {
   const groups = new Map();
   rows.filter(visibleCompany).filter(visibleCategory).forEach(row => {
-    const key = `${row.company}::${clean(row.item).toLowerCase()}`;
-    if (!groups.has(key)) groups.set(key, { company: row.company, item: row.item, occurrences: [] });
+    const key = `${row.company}::${row.item_key}`;
+    if (!groups.has(key)) groups.set(key, { company: row.company, kind, itemKey: row.item_key, item: row.item, occurrences: [] });
     groups.get(key).occurrences.push(row);
   });
   return [...groups.values()].map(group => {
     const counts = new Map();
     group.occurrences.forEach(row => counts.set(row.category, (counts.get(row.category) || 0) + 1));
     group.category = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || "Other";
-    group.metric = metricFor(group.company, group.item);
+    group.metric = metricFor(group.company, group.itemKey);
     group.constancy = group.metric.label;
     const years = group.occurrences.map(row => yearNumber(row.document_year)).filter(Boolean);
     group.latestYear = years.length ? Math.max(...years) : 0;
@@ -157,15 +164,18 @@ function mergeCommitments(rows) {
   });
 }
 
-function compareCommitments(a, b) {
-  if (state.sort === "name") return a.item.localeCompare(b.item);
-  if (state.sort === "date-desc") return b.latestYear - a.latestYear || a.item.localeCompare(b.item);
-  if (state.sort === "date-asc") return a.earliestYear - b.earliestYear || a.item.localeCompare(b.item);
-  return b.metric.score - a.metric.score || a.item.localeCompare(b.item);
+function compareCommitments(sort) {
+  return (a, b) => {
+    if (sort === "name") return a.item.localeCompare(b.item);
+    if (sort === "date-desc") return b.latestYear - a.latestYear || a.item.localeCompare(b.item);
+    if (sort === "date-asc") return a.earliestYear - b.earliestYear || a.item.localeCompare(b.item);
+    return b.metric.score - a.metric.score || a.item.localeCompare(b.item);
+  };
 }
 
 function commitmentTooltip(group) {
   const metric = group.metric;
+  const categoryMetric = categoryMetricFor(group.company, group.category, group.kind);
   const entries = uniqueBy(group.occurrences, row => `${row.document_id}::${clean(row.definition).toLowerCase()}`);
   return `<strong>${esc(group.item)}</strong>`
     + `<span class="tip-category">${esc(group.category)} · ${esc(group.company)} · ${esc(group.constancy)} · constancy ${Math.round(metric.score * 100)}/100</span>`
@@ -173,8 +183,9 @@ function commitmentTooltip(group) {
     + `<span>Definition similarity <b>${Math.round(metric.similarity * 100)}</b></span>`
     + `<span>Document recurrence <b>${Math.round(metric.recurrence * 100)}</b></span>`
     + `<span>Temporal persistence <b>${Math.round(metric.persistence * 100)}</b></span>`
+    + `<span>${esc(group.category)} overall <b>${Math.round(categoryMetric.score * 100)}</b></span>`
     + `</div>`
-    + `<span class="tip-extra">${group.documents} distinct document${group.documents === 1 ? "" : "s"}${group.latestYear ? ` · ${group.earliestYear === group.latestYear ? group.latestYear : `${group.earliestYear}–${group.latestYear}`}` : ""}. Items appearing recently in two or fewer documents are penalised.</span>`
+    + `<span class="tip-extra">${group.documents} distinct document${group.documents === 1 ? "" : "s"}${group.latestYear ? ` · ${group.earliestYear === group.latestYear ? group.latestYear : `${group.earliestYear}–${group.latestYear}`}` : ""}. ${esc(group.company)} states ${esc(group.category)} as a whole ${categoryMetric.label === "Constant" ? "consistently" : "variably"}, across ${categoryMetric.documents} document${categoryMetric.documents === 1 ? "" : "s"}.</span>`
     + `<div class="definition-list">${entries.map(row => `<section><b>${esc(row.document_title || "Untitled document")}${row.document_year ? ` (${esc(row.document_year)})` : ""}</b><p>${esc(row.definition || "No definition disclosed in this document.")}</p></section>`).join("")}</div>`;
 }
 
@@ -192,39 +203,53 @@ function commitmentCard(group) {
   return card;
 }
 
-function renderCommitments(target, rows, countTarget) {
+function renderCommitments(target, rows, countTarget, which) {
   const container = $(target);
   const columns = headings(container, "Risk / virtue category");
-  const groups = mergeCommitments(rows);
+  const kind = which === "virtues" ? "virtue" : "risk";
+  const groups = mergeCommitments(rows, kind);
+  const sort = state.sort[which];
+
+  /* A row is a category, so it is ranked by how consistently the visible
+     companies state that category — not by the average of its item chips. */
   const categories = [...new Set(groups.map(group => group.category))].map(category => {
     const members = groups.filter(group => group.category === category);
-    const score = members.reduce((sum, group) => sum + group.metric.score, 0) / Math.max(1, members.length);
+    const present = [...new Set(members.map(group => group.company))].map(company => categoryMetricFor(company, category, kind));
+    const mean = present.reduce((sum, metric) => sum + metric.score, 0) / Math.max(1, present.length);
+    /* A row is a category across companies, so how widely it is held counts as
+       well as how steadily each company states it: a category only one company
+       names is not yet a settled position in the field. */
+    const coverage = Math.min(1, Math.log(1 + present.length) / Math.log(1 + 3));
     return {
       category,
-      score,
-      constancy: members.some(group => group.constancy === "Constant") ? "Constant" : "Variable",
+      score: mean * coverage,
+      mean,
+      companies: present.length,
+      constant: present.filter(metric => metric.label === "Constant").length,
       latestYear: Math.max(0, ...members.map(group => group.latestYear)),
       earliestYear: Math.min(...members.map(group => group.earliestYear || Infinity)),
     };
   }).sort((a, b) => {
-    if (state.sort === "name") return a.category.localeCompare(b.category);
-    if (state.sort === "date-desc") return b.latestYear - a.latestYear || a.category.localeCompare(b.category);
-    if (state.sort === "date-asc") return a.earliestYear - b.earliestYear || a.category.localeCompare(b.category);
+    if (sort === "name") return a.category.localeCompare(b.category);
+    if (sort === "date-desc") return b.latestYear - a.latestYear || a.category.localeCompare(b.category);
+    if (sort === "date-asc") return a.earliestYear - b.earliestYear || a.category.localeCompare(b.category);
     return b.score - a.score || a.category.localeCompare(b.category);
   });
+
   categories.forEach(meta => {
     const label = document.createElement("div");
     label.className = "cat-row-label";
     const span = Number.isFinite(meta.earliestYear) && meta.latestYear
       ? (meta.earliestYear === meta.latestYear ? `${meta.latestYear}` : `${meta.earliestYear}–${meta.latestYear}`)
       : "";
-    label.innerHTML = `${esc(meta.category)}<span class="constancy"><i class="swatch" style="background:${color(meta.category)}"></i>mean constancy ${Math.round(meta.score * 100)}/100${span ? ` · ${span}` : ""}</span>`;
+    label.innerHTML = `${esc(meta.category)}<span class="constancy"><i class="swatch" style="background:${color(meta.category)}"></i>`
+      + `constancy ${Math.round(meta.mean * 100)}/100 · constant in ${meta.constant} of ${meta.companies} compan${meta.companies === 1 ? "y" : "ies"}${span ? ` · ${span}` : ""}</span>`;
     container.append(label);
     columns.forEach(company => {
       const cell = document.createElement("div");
       cell.className = "cat-cell";
       groups.filter(group => group.company === company.id && group.category === meta.category)
-        .sort(compareCommitments)
+        .sort(compareCommitments(sort))
         .forEach(group => cell.append(commitmentCard(group)));
       if (!cell.childElementCount) cell.textContent = "—";
       container.append(cell);
@@ -271,11 +296,17 @@ function renderAssociation(target, rows, processKey, exampleKey) {
   }
 
   const meanConstancy = new Map();
-  [...state.data.virtues, ...state.data.risks].filter(visibleCompany).forEach(row => {
-    const entry = meanConstancy.get(row.category) || { sum: 0, n: 0 };
-    entry.sum += metricFor(row.company, row.item).score;
-    entry.n += 1;
-    meanConstancy.set(row.category, entry);
+  const seenPair = new Set();
+  [["virtue", state.data.virtues], ["risk", state.data.risks]].forEach(([kind, source]) => {
+    source.filter(visibleCompany).forEach(row => {
+      const pair = `${row.company}::${kind}::${row.category}`;
+      if (seenPair.has(pair)) return;
+      seenPair.add(pair);
+      const entry = meanConstancy.get(row.category) || { sum: 0, n: 0 };
+      entry.sum += categoryMetricFor(row.company, row.category, kind).score;
+      entry.n += 1;
+      meanConstancy.set(row.category, entry);
+    });
   });
   const constancyOf = category => { const entry = meanConstancy.get(category); return entry ? entry.sum / entry.n : 0; };
 
@@ -441,61 +472,64 @@ function renderStackOverview() {
     { title: "BENCHMARKING", items: ["Task-performance benchmarks", "Adversarial stress tests", "Interactive scenarios or simulations", "Rubric or criterion-based scoring", "Behavioral probes or audits", "Comparative or human-baseline evaluations"] },
   ];
 
-  const faceWidth = 470;
-  const lineHeight = 21;
-  const originX = 168;
-  let cursor = 40;
+  /* Slabs are drawn square to the page: the depth comes from an extruded black
+     side and a cast shadow, not from rotating the text. */
+  const width = 900;
+  const railX = 52;
+  const slabX = 104;
+  const slabWidth = width - slabX - 34;
+  const lineHeight = 23;
+  const columnWidth = 250;
+  const titleHeight = 34;
+
+  let cursor = 104;
   const placed = layers.map((layer, index) => {
-    /* Long level names wrap onto a second line, as in the printed figure. */
-    const words = layer.title.split(" ");
-    const titleLines = layer.title.length > 24
-      ? [words.slice(0, Math.ceil(words.length / 2)).join(" "), words.slice(Math.ceil(words.length / 2)).join(" ")]
-      : [layer.title];
-    const faceHeight = 30 + layer.items.length * lineHeight;
-    const entry = { ...layer, index, titleLines, x: originX + index * 10, y: cursor, height: faceHeight };
-    cursor += faceHeight + 74 + (titleLines.length - 1) * 18;
+    const columns = Math.min(2, Math.ceil(layer.items.length / 4));
+    const perColumn = Math.ceil(layer.items.length / columns);
+    const height = titleHeight + perColumn * lineHeight + 16;
+    const entry = { ...layer, index, columns, perColumn, y: cursor, height };
+    cursor += height + 42;
     return entry;
   });
+  const height = cursor + 10;
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
 
-  const railX = 62;
-  const body = svg.append("g");
-  body.append("line").attr("class", "stack-rail")
-    .attr("x1", railX).attr("x2", railX)
-    .attr("y1", placed[0].y + placed[0].height / 2).attr("y2", placed[placed.length - 1].y + placed[placed.length - 1].height / 2);
+  svg.append("text").attr("class", "stack-figure-title").attr("x", width / 2).attr("y", 40).attr("text-anchor", "middle")
+    .text("The AI alignment stack");
+  svg.append("text").attr("class", "stack-figure-sub").attr("x", width / 2).attr("y", 68).attr("text-anchor", "middle")
+    .text("where and how AI is aligned");
+
+  svg.append("line").attr("class", "stack-rail").attr("x1", railX).attr("x2", railX)
+    .attr("y1", placed[0].y + placed[0].height / 2)
+    .attr("y2", placed[placed.length - 1].y + placed[placed.length - 1].height / 2);
 
   placed.forEach(layer => {
     const centre = layer.y + layer.height / 2;
-    body.append("circle").attr("class", "stack-number-dot").attr("cx", railX).attr("cy", centre).attr("r", 15);
-    body.append("text").attr("class", "stack-number").attr("x", railX).attr("y", centre + 4).attr("text-anchor", "middle")
+    svg.append("circle").attr("class", "stack-number-dot").attr("cx", railX).attr("cy", centre).attr("r", 16);
+    svg.append("text").attr("class", "stack-number").attr("x", railX).attr("y", centre + 4).attr("text-anchor", "middle")
       .text(String(layer.index + 1).padStart(2, "0"));
 
-    /* Each slab is a rounded plate seen at an angle: the same rectangle is
-       drawn three times — cast shadow, extruded black side, then the face. */
-    const plate = body.append("g").attr("transform", `translate(${layer.x},${layer.y}) rotate(-9) skewX(-17)`);
-    plate.append("rect").attr("class", "stack-shadow").attr("x", -14).attr("y", 24).attr("width", faceWidth).attr("height", layer.height).attr("rx", 16);
-    plate.append("rect").attr("class", "stack-extrude").attr("x", -7).attr("y", 12).attr("width", faceWidth).attr("height", layer.height).attr("rx", 16);
-    plate.append("rect").attr("class", "stack-face").attr("width", faceWidth).attr("height", layer.height).attr("rx", 16);
-    layer.titleLines.forEach((line, index) => {
-      plate.append("text").attr("class", "stack-layer-title").attr("x", 2)
-        .attr("y", -16 - (layer.titleLines.length - 1 - index) * 18).text(line);
-    });
+    const plate = svg.append("g");
+    plate.append("rect").attr("class", "stack-shadow").attr("x", slabX + 9).attr("y", layer.y + 11)
+      .attr("width", slabWidth).attr("height", layer.height).attr("rx", 14);
+    plate.append("rect").attr("class", "stack-extrude").attr("x", slabX + 5).attr("y", layer.y + 6)
+      .attr("width", slabWidth).attr("height", layer.height).attr("rx", 14);
+    plate.append("rect").attr("class", "stack-face").attr("x", slabX).attr("y", layer.y)
+      .attr("width", slabWidth).attr("height", layer.height).attr("rx", 14);
+    plate.append("text").attr("class", "stack-layer-title").attr("x", slabX + 22).attr("y", layer.y + 25)
+      .text(layer.title);
+    plate.append("line").attr("class", "stack-divider")
+      .attr("x1", slabX + 22).attr("x2", slabX + slabWidth - 22)
+      .attr("y1", layer.y + titleHeight - 1).attr("y2", layer.y + titleHeight - 1);
     layer.items.forEach((item, index) => {
-      plate.append("text").attr("class", "stack-layer-copy").attr("x", 26).attr("y", 30 + index * lineHeight).text(item);
+      const column = Math.floor(index / layer.perColumn);
+      const row = index % layer.perColumn;
+      plate.append("text").attr("class", "stack-layer-copy")
+        .attr("x", slabX + 22 + column * columnWidth)
+        .attr("y", layer.y + titleHeight + 12 + row * lineHeight)
+        .text(`— ${item}`);
     });
   });
-
-  /* The slabs are rotated and sheared, so measure what was actually drawn
-     rather than guessing at a viewBox. */
-  const box = body.node().getBBox();
-  const headroom = 76;
-  const pad = 16;
-  svg.append("text").attr("class", "stack-figure-title")
-    .attr("x", box.x + box.width / 2).attr("y", box.y - headroom + 26).attr("text-anchor", "middle")
-    .text("The AI alignment stack");
-  svg.append("text").attr("class", "stack-figure-sub")
-    .attr("x", box.x + box.width / 2).attr("y", box.y - headroom + 52).attr("text-anchor", "middle")
-    .text("where and how AI is aligned");
-  svg.attr("viewBox", `${box.x - pad} ${box.y - headroom} ${box.width + pad * 2} ${box.height + headroom + pad}`);
 }
 
 /* --------------------------------------------------------------- controls */
@@ -528,8 +562,8 @@ function renderAll() {
   renderLegend();
   renderCompanies();
   renderDocuments();
-  renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count");
-  renderCommitments("#risk-grid", state.data.risks, "#risk-count");
+  renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count", "virtues");
+  renderCommitments("#risk-grid", state.data.risks, "#risk-count", "risks");
   renderAssociation("#training-association", state.data.training, "training_category", "training_item");
   renderAssociation("#benchmark-association", state.data.benchmarking, "benchmark_category", "benchmark");
   renderAlluvial();
@@ -543,10 +577,13 @@ function start(data) {
 
   $("#compact-commitments").addEventListener("change", event => document.body.classList.toggle("compact-commitments", event.target.checked));
   $("#show-definitions").addEventListener("change", event => document.body.classList.toggle("show-definitions", event.target.checked));
-  $("#commitment-sort").addEventListener("change", event => {
-    state.sort = event.target.value;
-    renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count");
-    renderCommitments("#risk-grid", state.data.risks, "#risk-count");
+  $("#virtue-sort").addEventListener("change", event => {
+    state.sort.virtues = event.target.value;
+    renderCommitments("#virtue-grid", state.data.virtues, "#virtue-count", "virtues");
+  });
+  $("#risk-sort").addEventListener("change", event => {
+    state.sort.risks = event.target.value;
+    renderCommitments("#risk-grid", state.data.risks, "#risk-count", "risks");
   });
   $("#document-sort").addEventListener("change", event => { state.documentSort = event.target.value; renderDocuments(); });
   $("#association-sort").addEventListener("change", event => {
