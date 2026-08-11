@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapping value alignment</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="page.css">
+</head>
+<body class="value-map view-named">
+  <aside class="sidebar sidebar-left">
+    <header class="brand">
+      <h1>Mapping value<br>alignment</h1>
+      <p class="brand-sub">Values, risks, training and evaluation across model-card documentation.</p>
+    </header>
+    <nav class="side-nav" aria-label="Sections">
+      <a href="#introduction">Introduction</a>
+      <a href="#method">Method</a>
+      <a href="#findings">Findings</a>
+      <ul class="sub-nav">
+        <li><a href="#documents">Documents</a></li>
+        <li><a href="#virtues">Virtues</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#training">Training</a></li>
+        <li><a href="#benchmarking">Benchmarking</a></li>
+        <li><a href="#flows">Alignment stack</a></li>
+      </ul>
+      <a href="#limitations">Limitations</a>
+    </nav>
+  </aside>
+
+  <aside class="sidebar sidebar-right" aria-label="Controls">
+    <div class="side-block">
+      <h4>View</h4>
+      <label class="side-toggle"><input type="checkbox" id="compact-commitments"><span>Compact virtue/risk chips</span></label>
+      <label class="side-toggle"><input type="checkbox" id="show-definitions"><span>Show definitions in cards</span></label>
+      <p class="side-hint">Hover any value, risk or method card to read the recorded definition.</p>
+    </div>
+    <div class="side-block">
+      <h4>Sort virtues &amp; risks</h4>
+      <select id="commitment-sort" class="side-select">
+        <option value="constancy">Constancy</option>
+        <option value="name">Name A–Z</option>
+        <option value="date-desc">Document date · newest</option>
+        <option value="date-asc">Document date · oldest</option>
+      </select>
+    </div>
+    <div class="side-block">
+      <h4>Risk / virtue category</h4>
+      <p class="side-hint category-hint">Select one or more categories to filter every figure.</p>
+      <input type="search" id="category-search" class="side-search-input" placeholder="Find a category…">
+      <div id="legend" class="legend"></div>
+      <button class="reset" id="reset-categories" type="button">Show all categories</button>
+    </div>
+    <div class="side-block">
+      <h4>Companies</h4>
+      <p class="side-hint side-hint-companies">Tick to limit every figure to the selected companies.</p>
+      <ul id="company-list" class="company-list"></ul>
+      <button class="reset" id="reset-companies" type="button">Show all companies</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <h1 class="masthead-title">Mapping value alignment</h1>
+      <p class="byline">A distant reading of how eight AI companies articulate desirable conduct, potential harms, training interventions, and evaluations in model-card documentation.</p>
+    </header>
+
+    <section id="introduction" class="prose">
+      <h2>Introduction</h2>
+      <p class="lede">Value alignment is not a single technical intervention. It is a chain of choices through which companies define desirable conduct and potential harms, train models to respond to them, and evaluate whether those responses hold. This map follows that chain across model cards and related alignment documents.</p>
+      <p>Rather than treating safety policies, system cards, training methods and evaluations as separate artefacts, we trace their connections. A stated value or risk becomes operational when it is translated into a training intervention and made legible through a test. The map therefore treats documentation as evidence of what companies disclose about this chain—not as a complete account of how a model is actually trained or governed.</p>
+    </section>
+
+    <section id="method" class="prose">
+      <h2>Method</h2>
+      <p>The corpus contains model cards, system cards, safety frameworks, policy pages and technical reports from OpenAI, Google, Anthropic, xAI, Meta, DeepSeek, Mistral AI and Microsoft. Each source record links a value or risk to its definition, reported training method and reported benchmark where these are disclosed. Values and risks are placed in thematic categories; their constancy distinguishes recurrent, similarly defined commitments from more variable ones.</p>
+      <p>Every box in the following matrices is an individual disclosed item. For training and benchmarking, repeated disclosures are kept as distinct records so that the diagram preserves the evidentiary links between commitment, intervention and test.</p>
+    </section>
+
+    <section id="findings">
+      <h2>Findings</h2>
+      <section id="documents" class="grid-block">
+        <div class="block-head"><h3>Documents</h3><p class="block-sub">Grouped as principles, model cards, announcements / grants / initiatives, and policies.</p></div>
+        <p class="block-caption">One marker represents one document. Document title, date, type and model are supplied in the hover label.</p>
+        <div id="document-grid" class="row-grid"></div>
+      </section>
+
+      <section id="virtues" class="grid-block">
+        <div class="block-head"><h3>Virtues</h3><p class="block-sub">Ordered by constancy, from constant to variable; coloured by risk/virtue category.</p></div>
+        <div id="virtue-grid" class="row-grid"></div>
+      </section>
+
+      <section id="risks" class="grid-block">
+        <div class="block-head"><h3>Risks</h3><p class="block-sub">Ordered by constancy, from constant to variable; coloured by risk/virtue category.</p></div>
+        <div id="risk-grid" class="row-grid"></div>
+      </section>
+
+      <section id="training" class="grid-block">
+        <div class="block-head"><h3>Training</h3><p class="block-sub">Rows are reported training categories; colour identifies the value or risk category the method is associated with.</p></div>
+        <div id="training-grid" class="row-grid"></div>
+      </section>
+
+      <section id="benchmarking" class="grid-block">
+        <div class="block-head"><h3>Benchmarking</h3><p class="block-sub">Rows are benchmark categories; every card names the disclosed benchmark.</p></div>
+        <div id="benchmark-grid" class="row-grid"></div>
+      </section>
+    </section>
+
+    <section id="flows" class="prose flow-section">
+      <h2>From company to evaluation</h2>
+      <p>The alluvial diagram follows the alignment stack from company, to thematic category, to training category, to benchmark category. Its flow widths are constructed from source-record weights: when one record reports several training or benchmark categories, that record is divided among its reported paths. The aggregate therefore remains proportional to the underlying documentation, rather than giving every company equal visual weight.</p>
+      <div class="flow-wrap"><svg id="alluvial" role="img" aria-label="Alluvial diagram of company, thematic category, training category and benchmark category"></svg></div>
+      <p class="meta">“Not reported” denotes a source record without a disclosed training or benchmark category. Hover a flow for its weighted contribution.</p>
+    </section>
+
+    <section id="limitations" class="prose">
+      <h2>Limitations</h2>
+      <p>The map captures published descriptions, which vary substantially in scope, detail and genre. A company with many documents will naturally produce more source records; the alluvial preserves this empirical distribution while the matrices make the documentary basis visible. Absence from a matrix means absence from the collected disclosure, not necessarily absence from the model-development process.</p>
+    </section>
+  </main>
+
+  <div id="tooltip" role="status"></div>
+  <script src="data.js"></script>
+  <script src="d3.min.js"></script>
+  <script src="d3-sankey.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
